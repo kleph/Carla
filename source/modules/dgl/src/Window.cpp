@@ -397,12 +397,10 @@ Application& Window::getApp() const noexcept
     return pData->app;
 }
 
-#ifndef DPF_TEST_WINDOW_CPP
 const GraphicsContext& Window::getGraphicsContext() const noexcept
 {
     return pData->getGraphicsContext();
 }
-#endif
 
 uintptr_t Window::getNativeWindowHandle() const noexcept
 {
@@ -583,11 +581,11 @@ void Window::onFocus(bool, CrossingMode)
 {
 }
 
-void Window::onReshape(const uint width, const uint height)
+#if DGL_ALLOW_DEPRECATED_METHODS
+void Window::onReshape(uint, uint)
 {
-    if (pData->view != nullptr)
-        puglFallbackOnResize(pData->view, width, height);
 }
+#endif
 
 void Window::onScaleFactorChanged(double)
 {

@@ -268,9 +268,7 @@ Window::PrivateData::~PrivateData()
         isVisible = false;
     }
 
-   #ifndef DPF_TEST_WINDOW_CPP
     destroyContext();
-   #endif
     puglFreeView(view);
 }
 
@@ -646,9 +644,7 @@ void Window::PrivateData::onPuglConfigure(const uint width, const uint height)
 
     DGL_DBGp("PUGL: onReshape : %d %d\n", width, height);
 
-   #ifndef DPF_TEST_WINDOW_CPP
     createContextIfNeeded();
-   #endif
 
     if (autoScaling)
     {
@@ -672,9 +668,27 @@ void Window::PrivateData::onPuglConfigure(const uint width, const uint height)
                       autoScaling ? autoScaleFactor : scaleFactor);
    #endif
 
+  #if DGL_ALLOW_DEPRECATED_METHODS
+   #if defined(_MSC_VER)
+    #pragma warning(push)
+    #pragma warning(disable:4996)
+   #elif defined(__clang__)
+    #pragma clang diagnostic push
+    #pragma clang diagnostic ignored "-Wdeprecated-declarations"
+   #elif defined(__GNUC__) && (__GNUC__ * 100 + __GNUC_MINOR__) >= 460
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+   #endif
     self->onReshape(uwidth, uheight);
+   #if defined(_MSC_VER)
+    #pragma warning(pop)
+   #elif defined(__clang__)
+    #pragma clang diagnostic pop
+   #elif defined(__GNUC__) && (__GNUC__ * 100 + __GNUC_MINOR__) >= 460
+    #pragma GCC diagnostic pop
+   #endif
+  #endif
 
-#ifndef DPF_TEST_WINDOW_CPP
     FOR_EACH_TOP_LEVEL_WIDGET(it)
     {
         TopLevelWidget* const widget = *it;
@@ -689,7 +703,6 @@ void Window::PrivateData::onPuglConfigure(const uint width, const uint height)
          */
         ((Widget*)widget)->setSize(uwidth, uheight);
     }
-#endif
 
     // always repaint after a resize
     puglObscureView(view);
@@ -701,7 +714,6 @@ void Window::PrivateData::onPuglExpose()
 
     puglOnDisplayPrepare(view);
 
-#ifndef DPF_TEST_WINDOW_CPP
     startContext();
 
     FOR_EACH_TOP_LEVEL_WIDGET(it)
@@ -721,7 +733,6 @@ void Window::PrivateData::onPuglExpose()
     }
 
     endContext();
-#endif
 }
 
 void Window::PrivateData::onPuglClose()
@@ -774,7 +785,6 @@ void Window::PrivateData::onPuglKey(const Widget::KeyboardEvent& ev)
     if (modal.child != nullptr)
         return modal.child->focus();
 
-#ifndef DPF_TEST_WINDOW_CPP
     FOR_EACH_TOP_LEVEL_WIDGET_INV(rit)
     {
         TopLevelWidget* const widget(*rit);
@@ -782,7 +792,6 @@ void Window::PrivateData::onPuglKey(const Widget::KeyboardEvent& ev)
         if (widget->isVisible() && widget->onKeyboard(ev))
             break;
     }
-#endif
 }
 
 void Window::PrivateData::onPuglText(const Widget::CharacterInputEvent& ev)
@@ -792,7 +801,6 @@ void Window::PrivateData::onPuglText(const Widget::CharacterInputEvent& ev)
     if (modal.child != nullptr)
         return modal.child->focus();
 
-#ifndef DPF_TEST_WINDOW_CPP
     FOR_EACH_TOP_LEVEL_WIDGET_INV(rit)
     {
         TopLevelWidget* const widget(*rit);
@@ -800,7 +808,6 @@ void Window::PrivateData::onPuglText(const Widget::CharacterInputEvent& ev)
         if (widget->isVisible() && widget->onCharacterInput(ev))
             break;
     }
-#endif
 }
 
 void Window::PrivateData::onPuglMouse(const Widget::MouseEvent& ev)
@@ -810,7 +817,6 @@ void Window::PrivateData::onPuglMouse(const Widget::MouseEvent& ev)
     if (modal.child != nullptr)
         return modal.child->focus();
 
-#ifndef DPF_TEST_WINDOW_CPP
     FOR_EACH_TOP_LEVEL_WIDGET_INV(rit)
     {
         TopLevelWidget* const widget(*rit);
@@ -818,7 +824,6 @@ void Window::PrivateData::onPuglMouse(const Widget::MouseEvent& ev)
         if (widget->isVisible() && widget->onMouse(ev))
             break;
     }
-#endif
 }
 
 void Window::PrivateData::onPuglMotion(const Widget::MotionEvent& ev)
@@ -828,7 +833,6 @@ void Window::PrivateData::onPuglMotion(const Widget::MotionEvent& ev)
     if (modal.child != nullptr)
         return modal.child->focus();
 
-#ifndef DPF_TEST_WINDOW_CPP
     FOR_EACH_TOP_LEVEL_WIDGET_INV(rit)
     {
         TopLevelWidget* const widget(*rit);
@@ -836,7 +840,6 @@ void Window::PrivateData::onPuglMotion(const Widget::MotionEvent& ev)
         if (widget->isVisible() && widget->onMotion(ev))
             break;
     }
-#endif
 }
 
 void Window::PrivateData::onPuglScroll(const Widget::ScrollEvent& ev)
@@ -846,7 +849,6 @@ void Window::PrivateData::onPuglScroll(const Widget::ScrollEvent& ev)
     if (modal.child != nullptr)
         return modal.child->focus();
 
-#ifndef DPF_TEST_WINDOW_CPP
     FOR_EACH_TOP_LEVEL_WIDGET_INV(rit)
     {
         TopLevelWidget* const widget(*rit);
@@ -854,7 +856,6 @@ void Window::PrivateData::onPuglScroll(const Widget::ScrollEvent& ev)
         if (widget->isVisible() && widget->onScroll(ev))
             break;
     }
-#endif
 }
 
 const void* Window::PrivateData::getClipboard(size_t& dataSize)

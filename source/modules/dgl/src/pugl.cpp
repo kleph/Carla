@@ -436,33 +436,6 @@ void puglOnDisplayPrepare(PuglView*)
 }
 
 // --------------------------------------------------------------------------------------------------------------------
-// DGL specific, build-specific fallback resize
-
-void puglFallbackOnResize(PuglView* const view, const uint width, const uint height)
-{
-  #ifdef DGL_OPENGL
-   #if defined(DGL_USE_OPENGL3)
-    glViewport(0, 0, static_cast<GLsizei>(width), static_cast<GLsizei>(height));
-   #else
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    glViewport(0, 0, static_cast<GLsizei>(width), static_cast<GLsizei>(height));
-    glMatrixMode(GL_PROJECTION);
-    glLoadIdentity();
-    glOrtho(0.0, static_cast<GLdouble>(width), static_cast<GLdouble>(height), 0.0, 0.0, 1.0);
-    glViewport(0, 0, static_cast<GLsizei>(width), static_cast<GLsizei>(height));
-    glMatrixMode(GL_MODELVIEW);
-    glLoadIdentity();
-   #endif
-  #else
-    // unused
-    (void)view;
-    (void)width;
-    (void)height;
-  #endif
-}
-
-// --------------------------------------------------------------------------------------------------------------------
 
 #if defined(DISTRHO_OS_HAIKU)
 

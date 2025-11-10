@@ -125,7 +125,7 @@ OpenGLImage& OpenGLImage::operator=(const OpenGLImage& image) noexcept
     return *this;
 }
 
-#ifdef DGL_ALLOW_DEPRECATED_METHODS
+#if DGL_ALLOW_DEPRECATED_METHODS
 OpenGLImage::OpenGLImage(const char* const rdata, const uint w, const uint h, const GLenum fmt)
     : ImageBase(rdata, w, h, asDISTRHOImageFormat(fmt)),
       setupCalled(false),
