@@ -1,20 +1,6 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-
-# Carla Backend code
-# Copyright (C) 2011-2021 Filipe Coelho <falktx@falktx.com>
-#
-# This program is free software; you can redistribute it and/or
-# modify it under the terms of the GNU General Public License as
-# published by the Free Software Foundation; either version 2 of
-# the License, or any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-# GNU General Public License for more details.
-#
-# For a full copy of the GNU General Public License see the doc/GPL.txt file.
+# SPDX-FileCopyrightText: 2011-2025 Filipe Coelho <falktx@falktx.com>
+# SPDX-License-Identifier: GPL-2.0-or-later
 
 # ---------------------------------------------------------------------------------------------------------------------
 # Imports (Global)
@@ -36,14 +22,27 @@ from ctypes import (
 # Imports (Custom)
 
 from common import (
-    kIs64bit, HAIKU, LINUX, MACOS, WINDOWS, VERSION
+    CARLA_OS_64BIT,
+    CARLA_OS_BSD,
+    CARLA_OS_GNU_HURD,
+    CARLA_OS_HAIKU,
+    CARLA_OS_LINUX,
+    CARLA_OS_MAC,
+    CARLA_OS_UNIX,
+    CARLA_OS_WASM,
+    CARLA_OS_WIN,
+    CARLA_OS_WIN32,
+    CARLA_OS_WIN64,
+    CARLA_VERSION_HEX,
+    CARLA_VERSION_STRING,
+    CARLA_VERSION_STRMIN,
 )
 
 # ---------------------------------------------------------------------------------------------------------------------
 # Define custom types
 
 c_enum = c_int
-c_uintptr = c_uint64 if kIs64bit else c_uint32
+c_uintptr = c_uint64 if CARLA_OS_64BIT else c_uint32
 
 # ---------------------------------------------------------------------------------------------------------------------
 # Convert a ctypes c_char_p into a python string
@@ -207,6 +206,21 @@ PLUGIN_USES_MULTI_PROGS = 0x400
 
 # Plugin can make use of inline display API.
 PLUGIN_HAS_INLINE_DISPLAY = 0x800
+
+# Plugin has its own custom UI which can be embed into another Window.
+# @see carla_embed_custom_ui()
+# @note This is very experimental and subject to change at this point
+PLUGIN_HAS_CUSTOM_EMBED_UI = 0x1000
+
+# Plugin custom UI is a fake one that simply invokes an open file browser dialog.
+PLUGIN_HAS_CUSTOM_UI_USING_FILE_OPEN = 0x2000
+
+# Plugin needs all idle events in the main thread.
+# @note Not possible on all engine implementations.
+PLUGIN_NEEDS_MAIN_THREAD_IDLE = 0x4000
+
+# Plugin has its own custom UI which is user resizable.
+PLUGIN_HAS_CUSTOM_RESIZABLE_UI = 0x8000
 
 # ---------------------------------------------------------------------------------------------------------------------
 # Plugin Options
@@ -1513,10 +1527,14 @@ PyCarlaRuntimeEngineDriverDeviceInfo = {
 # ---------------------------------------------------------------------------------------------------------------------
 # Set BINARY_NATIVE
 
-if WINDOWS:
-    BINARY_NATIVE = BINARY_WIN64 if kIs64bit else BINARY_WIN32
+if CARLA_OS_WIN64:
+    BINARY_NATIVE = BINARY_WIN64
+elif CARLA_OS_WIN32:
+    BINARY_NATIVE = BINARY_WIN32
+elif CARLA_OS_64BIT:
+    BINARY_NATIVE = BINARY_POSIX64
 else:
-    BINARY_NATIVE = BINARY_POSIX64 if kIs64bit else BINARY_POSIX32
+    BINARY_NATIVE = BINARY_POSIX32
 
 # ---------------------------------------------------------------------------------------------------------------------
 # Carla Host object (Meta)
@@ -1528,6 +1546,7 @@ class CarlaHostMeta():
         self.isPlugin  = False
         self.isRemote  = False
         self.nsmOK     = False
+        self.handle    = None
 
         # settings
         self.processMode       = ENGINE_PROCESS_MODE_PATCHBAY

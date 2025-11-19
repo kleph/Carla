@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2011-2024 Filipe Coelho <falktx@falktx.com>
+// SPDX-FileCopyrightText: 2011-2025 Filipe Coelho <falktx@falktx.com>
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 /* TODO:
@@ -46,7 +46,6 @@ using water::Array;
 using water::CharPointer_UTF8;
 using water::File;
 using water::MemoryOutputStream;
-using water::String;
 using water::StringArray;
 using water::XmlDocument;
 using water::XmlElement;
@@ -535,7 +534,7 @@ bool CarlaEngine::addPlugin(const BinaryType btype,
     };
 
     CarlaPluginPtr plugin;
-    CarlaString bridgeBinary(pData->options.binaryDir);
+    String bridgeBinary(pData->options.binaryDir);
 
     if (bridgeBinary.isNotEmpty())
     {
@@ -1131,19 +1130,19 @@ const char* CarlaEngine::getUniquePluginName(const char* const name) const
     CARLA_SAFE_ASSERT_RETURN(name != nullptr && name[0] != '\0', nullptr);
     carla_debug("CarlaEngine::getUniquePluginName(\"%s\")", name);
 
-    CarlaString sname;
+    String sname;
     sname = name;
 
     if (sname.isEmpty())
     {
         sname = "(No name)";
-        return sname.dup();
+        return carla_strdup(sname);
     }
 
     const std::size_t maxNameSize(carla_minConstrained<uint>(getMaxClientNameSize(), 0xff, 6U) - 6); // 6 = strlen(" (10)") + 1
 
     if (maxNameSize == 0 || ! isRunning())
-        return sname.dup();
+        return carla_strdup(sname);
 
     sname.truncate(maxNameSize);
     sname.replace(':', '.'); // ':' is used in JACK1 to split client/port names
@@ -1208,7 +1207,7 @@ const char* CarlaEngine::getUniquePluginName(const char* const name) const
         sname += " (2)";
     }
 
-    return sname.dup();
+    return carla_strdup(sname);
 }
 
 // -----------------------------------------------------------------------
@@ -1223,8 +1222,8 @@ bool CarlaEngine::loadFile(const char* const filename)
     File file(filename);
     CARLA_SAFE_ASSERT_RETURN_ERR(file.exists(), "Requested file does not exist or is not a readable");
 
-    CarlaString baseName(file.getFileNameWithoutExtension().toRawUTF8());
-    CarlaString extension(file.getFileExtension().replace(".","").toLowerCase().toRawUTF8());
+    String baseName(file.getFileNameWithoutExtension().toRawUTF8());
+    String extension(file.getFileExtension().replace(".","").toLowerCase().toRawUTF8());
 
     const uint curPluginId(pData->nextPluginId < pData->curPluginCount ? pData->nextPluginId : pData->curPluginCount);
 
@@ -1331,7 +1330,7 @@ bool CarlaEngine::loadFile(const char* const filename)
     if (extension == "xmz" || extension == "xiz")
     {
 #ifdef HAVE_ZYN_DEPS
-        CarlaString nicerName("Zyn - ");
+        String nicerName("Zyn - ");
 
         const std::size_t sep(baseName.find('-')+1);
 
@@ -2110,7 +2109,7 @@ void CarlaEngine::setOption(const EngineOption option, const int value, const ch
 
         if (value != 0)
         {
-            CarlaString interposerPath(CarlaString(pData->options.binaryDir) + "/libcarla_interposer-safe.so");
+            String interposerPath(String(pData->options.binaryDir) + "/libcarla_interposer-safe.so");
             ::setenv("LD_PRELOAD", interposerPath.buffer(), 1);
         }
         else
@@ -2367,8 +2366,8 @@ void CarlaEngine::saveProjectInternal(water::MemoryOutputStream& outStream) cons
         outSettings << "  <PreferUiBridges>"     << bool2str(options.preferUiBridges)     << "</PreferUiBridges>\n";
         outSettings << "  <UIsAlwaysOnTop>"      << bool2str(options.uisAlwaysOnTop)      << "</UIsAlwaysOnTop>\n";
 
-        outSettings << "  <MaxParameters>"       << String(options.maxParameters)    << "</MaxParameters>\n";
-        outSettings << "  <UIBridgesTimeout>"    << String(options.uiBridgesTimeout) << "</UIBridgesTimeout>\n";
+        outSettings << "  <MaxParameters>"       << water::String(options.maxParameters)    << "</MaxParameters>\n";
+        outSettings << "  <UIBridgesTimeout>"    << water::String(options.uiBridgesTimeout) << "</UIBridgesTimeout>\n";
 
         if (isPlugin)
         {
@@ -2585,12 +2584,12 @@ void CarlaEngine::saveProjectInternal(water::MemoryOutputStream& outStream) cons
     outStream << "</CARLA-PROJECT>\n";
 }
 
-static String findBinaryInCustomPath(const char* const searchPath, const char* const binary)
+static water::String findBinaryInCustomPath(const char* const searchPath, const char* const binary)
 {
     const StringArray searchPaths(StringArray::fromTokens(searchPath, CARLA_OS_SPLIT_STR, ""));
 
     // try direct filename first
-    String jbinary(binary);
+    water::String jbinary(binary);
 
     // adjust for current platform
 #ifdef CARLA_OS_WIN
@@ -2601,7 +2600,7 @@ static String findBinaryInCustomPath(const char* const searchPath, const char* c
         jbinary = jbinary.substring(2).replaceCharacter('\\', '/');
 #endif
 
-    String filename = File(jbinary.toRawUTF8()).getFileName();
+    water::String filename = File(jbinary.toRawUTF8()).getFileName();
 
     int searchFlags = File::findFiles|File::ignoreHiddenFiles;
 
@@ -2613,7 +2612,7 @@ static String findBinaryInCustomPath(const char* const searchPath, const char* c
 #endif
 
     std::vector<File> results;
-    for (const String *it=searchPaths.begin(), *end=searchPaths.end(); it != end; ++it)
+    for (const water::String *it=searchPaths.begin(), *end=searchPaths.end(); it != end; ++it)
     {
         const File path(it->toRawUTF8());
 
@@ -2636,9 +2635,9 @@ static String findBinaryInCustomPath(const char* const searchPath, const char* c
         filename = File(jbinary.toRawUTF8()).getFileNameWithoutExtension() + ".so";
 #endif
     else
-        return String();
+        return {};
 
-    for (const String *it=searchPaths.begin(), *end=searchPaths.end(); it != end; ++it)
+    for (const water::String *it=searchPaths.begin(), *end=searchPaths.end(); it != end; ++it)
     {
         const File path(it->toRawUTF8());
 
@@ -2649,17 +2648,17 @@ static String findBinaryInCustomPath(const char* const searchPath, const char* c
             return results.front().getFullPathName();
     }
 
-    return String();
+    return {};
 }
 
 bool CarlaEngine::loadProjectInternal(water::XmlDocument& xmlDoc, const bool alwaysLoadConnections)
 {
     carla_debug("CarlaEngine::loadProjectInternal(%p, %s) - START", &xmlDoc, bool2str(alwaysLoadConnections));
 
-    CarlaScopedPointer<XmlElement> xmlElement(xmlDoc.getDocumentElement(true));
+    ScopedPointer<XmlElement> xmlElement(xmlDoc.getDocumentElement(true));
     CARLA_SAFE_ASSERT_RETURN_ERR(xmlElement != nullptr, "Failed to parse project file");
 
-    const String& xmlType(xmlElement->getTagName());
+    const water::String& xmlType(xmlElement->getTagName());
     const bool isPreset(xmlType.equalsIgnoreCase("carla-preset"));
 
     if (! (xmlType.equalsIgnoreCase("carla-project") || isPreset))
@@ -2713,8 +2712,8 @@ bool CarlaEngine::loadProjectInternal(water::XmlDocument& xmlDoc, const bool alw
     {
         for (XmlElement* settElem = elem->getFirstChildElement(); settElem != nullptr; settElem = settElem->getNextElement())
         {
-            const String& tag(settElem->getTagName());
-            const String  text(settElem->getAllSubText().trim());
+            const water::String& tag(settElem->getTagName());
+            const water::String  text(settElem->getAllSubText().trim());
 
             /** some settings might be incorrect or require extra work,
                 so we call setOption rather than modifying them direly */
@@ -2847,7 +2846,7 @@ bool CarlaEngine::loadProjectInternal(water::XmlDocument& xmlDoc, const bool alw
     {
         if (XmlElement* const bpmElem = elem->getChildByName("BeatsPerMinute"))
         {
-            const String bpmText(bpmElem->getAllSubText().trim());
+            const water::String bpmText(bpmElem->getAllSubText().trim());
             const double bpm = bpmText.getDoubleValue();
 
             // some sane limits
@@ -2868,7 +2867,7 @@ bool CarlaEngine::loadProjectInternal(water::XmlDocument& xmlDoc, const bool alw
     // and we handle plugins
     for (XmlElement* elem = xmlElement->getFirstChildElement(); elem != nullptr; elem = elem->getNextElement())
     {
-        const String& tagName(elem->getTagName());
+        const water::String& tagName(elem->getTagName());
 
         if (isPreset || tagName == "Plugin")
         {
@@ -2906,7 +2905,7 @@ bool CarlaEngine::loadProjectInternal(water::XmlDocument& xmlDoc, const bool alw
                             return false;
                         }
 
-                        String lsState;
+                        water::String lsState;
                         lsState << "0.35\n";
                         lsState << "18 0 Chromatic\n";
                         lsState << "18 1 Drum Kits\n";
@@ -3013,7 +3012,7 @@ bool CarlaEngine::loadProjectInternal(water::XmlDocument& xmlDoc, const bool alw
             switch (ptype)
             {
             case PLUGIN_SF2:
-                if (CarlaString(stateSave.label).endsWith(" (16 outs)"))
+                if (String(stateSave.label).endsWith(" (16 outs)"))
                     extraStuff = kTrue;
                 // fall through
             case PLUGIN_LADSPA:
@@ -3046,7 +3045,7 @@ bool CarlaEngine::loadProjectInternal(water::XmlDocument& xmlDoc, const bool alw
                         carla_stderr("Plugin binary '%s' doesn't exist on this filesystem, let's look for it...",
                                      stateSave.binary);
 
-                        String result = findBinaryInCustomPath(searchPath, stateSave.binary);
+                        water::String result = findBinaryInCustomPath(searchPath, stateSave.binary);
 
                         if (result.isEmpty())
                         {
@@ -3198,12 +3197,12 @@ bool CarlaEngine::loadProjectInternal(water::XmlDocument& xmlDoc, const bool alw
 
         if (XmlElement* const elemPositions = elemPatchbay->getChildByName("Positions"))
         {
-            String name;
+            water::String name;
             PatchbayPosition ppos = { nullptr, -1, 0, 0, 0, 0, false };
 
             for (XmlElement* patchElem = elemPositions->getFirstChildElement(); patchElem != nullptr; patchElem = patchElem->getNextElement())
             {
-                const String& patchTag(patchElem->getTagName());
+                const water::String& patchTag(patchElem->getTagName());
 
                 if (patchTag != "Position")
                     continue;
@@ -3211,7 +3210,7 @@ bool CarlaEngine::loadProjectInternal(water::XmlDocument& xmlDoc, const bool alw
                 XmlElement* const patchName = patchElem->getChildByName("Name");
                 CARLA_SAFE_ASSERT_CONTINUE(patchName != nullptr);
 
-                const String nameText(patchName->getAllSubText().trim());
+                const water::String nameText(patchName->getAllSubText().trim());
                 name = xmlSafeString(nameText, false);
 
                 ppos.name = name.toRawUTF8();
@@ -3256,12 +3255,12 @@ bool CarlaEngine::loadProjectInternal(water::XmlDocument& xmlDoc, const bool alw
     {
         if (XmlElement* const elemPositions = elemPatchbay->getChildByName("Positions"))
         {
-            String name;
+            water::String name;
             PatchbayPosition ppos = { nullptr, -1, 0, 0, 0, 0, false };
 
             for (XmlElement* patchElem = elemPositions->getFirstChildElement(); patchElem != nullptr; patchElem = patchElem->getNextElement())
             {
-                const String& patchTag(patchElem->getTagName());
+                const water::String& patchTag(patchElem->getTagName());
 
                 if (patchTag != "Position")
                     continue;
@@ -3269,7 +3268,7 @@ bool CarlaEngine::loadProjectInternal(water::XmlDocument& xmlDoc, const bool alw
                 XmlElement* const patchName = patchElem->getChildByName("Name");
                 CARLA_SAFE_ASSERT_CONTINUE(patchName != nullptr);
 
-                const String nameText(patchName->getAllSubText().trim());
+                const water::String nameText(patchName->getAllSubText().trim());
                 name = xmlSafeString(nameText, false);
 
                 ppos.name = name.toRawUTF8();
@@ -3327,7 +3326,7 @@ bool CarlaEngine::loadProjectInternal(water::XmlDocument& xmlDoc, const bool alw
 
             for (XmlElement* patchElem = elem->getFirstChildElement(); patchElem != nullptr; patchElem = patchElem->getNextElement())
             {
-                const String& patchTag(patchElem->getTagName());
+                const water::String& patchTag(patchElem->getTagName());
 
                 if (patchTag != "Connection")
                     continue;
@@ -3337,8 +3336,8 @@ bool CarlaEngine::loadProjectInternal(water::XmlDocument& xmlDoc, const bool alw
 
                 for (XmlElement* connElem = patchElem->getFirstChildElement(); connElem != nullptr; connElem = connElem->getNextElement())
                 {
-                    const String& tag(connElem->getTagName());
-                    const String  text(connElem->getAllSubText().trim());
+                    const water::String& tag(connElem->getTagName());
+                    const water::String  text(connElem->getAllSubText().trim());
 
                     /**/ if (tag == "Source")
                         sourcePort = xmlSafeString(text, false);
@@ -3401,7 +3400,7 @@ bool CarlaEngine::loadProjectInternal(water::XmlDocument& xmlDoc, const bool alw
 
         for (XmlElement* elem = xmlElement->getFirstChildElement(); elem != nullptr; elem = elem->getNextElement())
         {
-            const String& tagName(elem->getTagName());
+            const water::String& tagName(elem->getTagName());
 
             // check if we want to load patchbay-mode connections into an external (multi-client) graph
             if (tagName == "Patchbay")
@@ -3427,7 +3426,7 @@ bool CarlaEngine::loadProjectInternal(water::XmlDocument& xmlDoc, const bool alw
 
             for (XmlElement* patchElem = elem->getFirstChildElement(); patchElem != nullptr; patchElem = patchElem->getNextElement())
             {
-                const String& patchTag(patchElem->getTagName());
+                const water::String& patchTag(patchElem->getTagName());
 
                 if (patchTag != "Connection")
                     continue;
@@ -3437,8 +3436,8 @@ bool CarlaEngine::loadProjectInternal(water::XmlDocument& xmlDoc, const bool alw
 
                 for (XmlElement* connElem = patchElem->getFirstChildElement(); connElem != nullptr; connElem = connElem->getNextElement())
                 {
-                    const String& tag(connElem->getTagName());
-                    const String  text(connElem->getAllSubText().trim());
+                    const water::String& tag(connElem->getTagName());
+                    const water::String  text(connElem->getAllSubText().trim());
 
                     /**/ if (tag == "Source")
                         sourcePort = xmlSafeString(text, false);

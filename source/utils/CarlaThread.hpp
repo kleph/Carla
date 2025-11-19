@@ -1,31 +1,19 @@
-/*
- * Carla Thread
- * Copyright (C) 2013-2023 Filipe Coelho <falktx@falktx.com>
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License as
- * published by the Free Software Foundation; either version 2 of
- * the License, or any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- *
- * For a full copy of the GNU General Public License see the doc/GPL.txt file.
- */
+// SPDX-FileCopyrightText: 2011-2025 Filipe Coelho <falktx@falktx.com>
+// SPDX-License-Identifier: GPL-2.0-or-later
 
 #ifndef CARLA_THREAD_HPP_INCLUDED
 #define CARLA_THREAD_HPP_INCLUDED
 
 #include "CarlaMutex.hpp"
-#include "CarlaString.hpp"
 #include "CarlaProcessUtils.hpp"
-#include "CarlaTimeUtils.hpp"
+#include "extra/Sleep.hpp"
+#include "extra/String.hpp"
 
 #ifdef CARLA_OS_WASM
 # error Threads do not work under wasm!
 #endif
+
+using DISTRHO_NAMESPACE::d_msleep;
 
 // -----------------------------------------------------------------------
 // CarlaThread class
@@ -181,7 +169,7 @@ public:
 
                 for (; isThreadRunning();)
                 {
-                    carla_msleep(2);
+                    d_msleep(2);
 
                     if (timeOutCheck < 0)
                         continue;
@@ -225,7 +213,7 @@ public:
      * Returns the name of the thread.
      * This is the name that gets set in the constructor.
      */
-    const CarlaString& getThreadName() const noexcept
+    const String& getThreadName() const noexcept
     {
         return fName;
     }
@@ -261,7 +249,7 @@ public:
 private:
     CarlaMutex         fLock;       // Thread lock
     CarlaSignal        fSignal;     // Thread start wait signal
-    const CarlaString  fName;       // Thread name
+    const String       fName;       // Thread name
     volatile pthread_t fHandle;     // Handle for this thread
     volatile bool      fShouldExit; // true if thread should exit
 

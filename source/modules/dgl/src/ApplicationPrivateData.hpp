@@ -1,6 +1,6 @@
 /*
  * DISTRHO Plugin Framework (DPF)
- * Copyright (C) 2012-2021 Filipe Coelho <falktx@falktx.com>
+ * Copyright (C) 2012-2025 Filipe Coelho <falktx@falktx.com>
  *
  * Permission to use, copy, modify, and/or distribute this software for any purpose with
  * or without fee is hereby granted, provided that the above copyright notice and this
@@ -51,8 +51,14 @@ struct Application::PrivateData {
     /** Pugl world instance. */
     PuglWorld* const world;
 
+    /** Whether the applicating uses modern backend, otherwise classic. */
+    const bool isModern;
+
     /** Whether the application is running as standalone, otherwise it is part of a plugin. */
     const bool isStandalone;
+
+    /** Whether the applicating is starting up, that is, no windows have been made visible yet. Defaults to true. */
+    bool isStarting;
 
     /** Whether the applicating is about to quit, or already stopped. Defaults to false. */
     bool isQuitting;
@@ -60,8 +66,8 @@ struct Application::PrivateData {
     /** Helper for safely close everything from main thread. */
     bool isQuittingInNextCycle;
 
-    /** Whether the applicating is starting up, that is, no windows have been made visible yet. Defaults to true. */
-    bool isStarting;
+    /** When true force all windows to be repainted on next idle. */
+    bool needsRepaint;
 
     /** Counter of visible windows, only used in standalone mode.
         If 0->1, application is starting. If 1->0, application is quitting/stopping. */
@@ -77,7 +83,7 @@ struct Application::PrivateData {
     std::list<DGL_NAMESPACE::IdleCallback*> idleCallbacks;
 
     /** Constructor and destructor */
-    explicit PrivateData(bool standalone);
+    explicit PrivateData(bool standalone, Type type);
     ~PrivateData();
 
     /** Flag one window as shown, which increments @a visibleWindows.
@@ -95,6 +101,9 @@ struct Application::PrivateData {
 
     /** Run each idle callback without updating pugl world. */
     void triggerIdleCallbacks();
+
+    /** Trigger a repaint of all windows if @a needsRepaint is true. */
+    void repaintIfNeeeded();
 
     /** Set flag indicating application is quitting, and close all windows in reverse order of registration.
         For standalone mode only. */

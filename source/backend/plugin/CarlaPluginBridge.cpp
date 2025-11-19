@@ -1,36 +1,24 @@
-/*
- * Carla Plugin Bridge
- * Copyright (C) 2011-2024 Filipe Coelho <falktx@falktx.com>
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License as
- * published by the Free Software Foundation; either version 2 of
- * the License, or any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- *
- * For a full copy of the GNU General Public License see the doc/GPL.txt file.
- */
+// SPDX-FileCopyrightText: 2011-2025 Filipe Coelho <falktx@falktx.com>
+// SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "CarlaPluginInternal.hpp"
 
 #include "CarlaBackendUtils.hpp"
-#include "CarlaBase64Utils.hpp"
 #include "CarlaBridgeUtils.hpp"
 #include "CarlaEngineUtils.hpp"
 #include "CarlaMathUtils.hpp"
 #include "CarlaPipeUtils.hpp"
 #include "CarlaScopeUtils.hpp"
 #include "CarlaShmUtils.hpp"
-#include "CarlaTimeUtils.hpp"
 #include "CarlaThread.hpp"
 
 #include "jackbridge/JackBridge.hpp"
 
 #include <ctime>
+
+#include "extra/Base64.hpp"
+#include "extra/ScopedPointer.hpp"
+#include "extra/Time.hpp"
 
 #include "water/files/File.h"
 #include "water/misc/Time.h"
@@ -40,8 +28,6 @@
 
 using water::ChildProcess;
 using water::File;
-using water::String;
-using water::StringArray;
 
 CARLA_BACKEND_START_NAMESPACE
 
@@ -53,17 +39,17 @@ static const ExternalMidiNote kExternalMidiNoteFallback = { -1, 0, 0 };
 // --------------------------------------------------------------------------------------------------------------------
 
 #ifndef CARLA_OS_WIN
-static String findWinePrefix(const String filename, const int recursionLimit = 10)
+static water::String findWinePrefix(const water::String filename, const int recursionLimit = 10)
 {
     if (recursionLimit == 0 || filename.length() < 5 || ! filename.contains("/"))
-        return "";
+        return {};
 
-    const String path(filename.upToLastOccurrenceOf("/", false, false));
+    const water::String path(filename.upToLastOccurrenceOf("/", false, false));
 
-    if (File(String(path + "/dosdevices").toRawUTF8()).isDirectory())
+    if (File(water::String(path + "/dosdevices").toRawUTF8()).isDirectory())
         return path;
 
-    return findWinePrefix(path, recursionLimit-1);
+    return findWinePrefix(path, recursionLimit - 1);
 }
 #endif
 
@@ -71,9 +57,9 @@ static String findWinePrefix(const String filename, const int recursionLimit = 1
 
 struct BridgeParamInfo {
     float value;
-    CarlaString name;
-    CarlaString symbol;
-    CarlaString unit;
+    String name;
+    String symbol;
+    String unit;
 
     BridgeParamInfo() noexcept
         : value(0.0f),
@@ -185,18 +171,18 @@ protected:
 
         const EngineOptions& options(kEngine->getOptions());
 
-        String filename(kPlugin->getFilename());
+        water::String filename(kPlugin->getFilename());
 
         if (filename.isEmpty())
             filename = "(none)";
 
-        StringArray arguments;
+        water::StringArray arguments;
 
        #ifndef CARLA_OS_WIN
         // start with "wine" if needed
         if (fBridgeBinary.endsWithIgnoreCase(".exe"))
         {
-            String wineCMD;
+            water::String wineCMD;
 
             if (options.wine.executable != nullptr && options.wine.executable[0] != '\0')
             {
@@ -204,7 +190,7 @@ protected:
 
                 if (fBridgeBinary.endsWithIgnoreCase("64.exe")
                     && options.wine.executable[0] == CARLA_OS_SEP
-                    && File(String(wineCMD + "64").toRawUTF8()).existsAsFile())
+                    && File(water::String(wineCMD + "64").toRawUTF8()).existsAsFile())
                     wineCMD += "64";
             }
             else
@@ -240,7 +226,7 @@ protected:
         arguments.add(fLabel);
 
         // uniqueId
-        arguments.add(String(static_cast<water::int64>(kPlugin->getUniqueId())));
+        arguments.add(water::String(static_cast<water::int64>(kPlugin->getUniqueId())));
 
         bool started;
 
@@ -386,7 +372,7 @@ protected:
         }
 
         for (; fProcess->isRunning() && ! shouldThreadExit();)
-            carla_sleep(1);
+            d_msleep(100);
 
         // we only get here if bridge crashed or thread asked to exit
         if (fProcess->isRunning() && shouldThreadExit())
@@ -410,9 +396,9 @@ protected:
             {
                 carla_stderr("CarlaPluginBridgeThread::run() - bridge crashed");
 
-                CarlaString errorString("Plugin '" + CarlaString(kPlugin->getName()) + "' has crashed!\n"
-                                        "Saving now will lose its current settings.\n"
-                                        "Please remove this plugin, and not rely on it from this point.");
+                String errorString("Plugin '" + String(kPlugin->getName()) + "' has crashed!\n"
+                                   "Saving now will lose its current settings.\n"
+                                   "Please remove this plugin, and not rely on it from this point.");
                 kEngine->callback(true, true,
                                   ENGINE_CALLBACK_ERROR, kPlugin->getId(), 0, 0, 0, 0.0f, errorString);
             }
@@ -425,15 +411,15 @@ private:
     CarlaEngine* const kEngine;
     CarlaPlugin* const kPlugin;
 
-    String fBinaryArchName;
-    String fBridgeBinary;
-    String fLabel;
-    String fShmIds;
+    water::String fBinaryArchName;
+    water::String fBridgeBinary;
+    water::String fLabel;
+    water::String fShmIds;
    #ifndef CARLA_OS_WIN
-    CarlaString fWinePrefix;
+    String fWinePrefix;
    #endif
 
-    CarlaScopedPointer<ChildProcess> fProcess;
+    ScopedPointer<ChildProcess> fProcess;
 
     CARLA_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(CarlaPluginBridgeThread)
 };
@@ -690,10 +676,10 @@ public:
         if (fReceivingParamText.wasDataReceived(&success))
             return success;
 
-        const uint32_t timeoutEnd = carla_gettime_ms() + 500; // 500 ms
+        const uint32_t timeoutEnd = d_gettime_ms() + 500; // 500 ms
         const bool needsEngineIdle = pData->engine->getType() != kEngineTypePlugin;
 
-        for (; carla_gettime_ms() < timeoutEnd && fBridgeThread.isThreadRunning();)
+        for (; d_gettime_ms() < timeoutEnd && fBridgeThread.isThreadRunning();)
         {
             if (fReceivingParamText.wasDataReceived(&success))
                 return success;
@@ -701,7 +687,7 @@ public:
             if (needsEngineIdle)
                 pData->engine->idle();
 
-            carla_msleep(5);
+            d_msleep(5);
         }
 
         if (! fBridgeThread.isThreadRunning())
@@ -720,10 +706,10 @@ public:
             return;
 
         // TODO: only wait 1 minute for NI plugins
-        const uint32_t timeoutEnd = carla_gettime_ms() + 60*1000; // 60 secs, 1 minute
+        const uint32_t timeoutEnd = d_gettime_ms() + 60*1000; // 60 secs, 1 minute
         const bool needsEngineIdle = pData->engine->getType() != kEngineTypePlugin;
 
-        for (; carla_gettime_ms() < timeoutEnd && fBridgeThread.isThreadRunning();)
+        for (; d_gettime_ms() < timeoutEnd && fBridgeThread.isThreadRunning();)
         {
             pData->engine->callback(true, true, ENGINE_CALLBACK_IDLE, 0, 0, 0, 0, 0.0f, nullptr);
 
@@ -733,7 +719,7 @@ public:
             if (fSaved)
                 break;
 
-            carla_msleep(20);
+            d_msleep(20);
         }
 
         if (! fBridgeThread.isThreadRunning())
@@ -991,7 +977,7 @@ public:
             {
                 if (valueLen > maxLocalValueLen)
                 {
-                    String filePath(File::getSpecialLocation(File::tempDirectory).getFullPathName());
+                    water::String filePath(File::getSpecialLocation(File::tempDirectory).getFullPathName());
 
                     filePath += CARLA_OS_SEP_STR ".CarlaCustomData_";
                     filePath += fShmAudioPool.getFilenameSuffix();
@@ -1026,10 +1012,10 @@ public:
         CARLA_SAFE_ASSERT_RETURN(data != nullptr,);
         CARLA_SAFE_ASSERT_RETURN(dataSize > 0,);
 
-        CarlaString dataBase64(CarlaString::asBase64(data, dataSize));
+        String dataBase64(String::asBase64(data, dataSize));
         CARLA_SAFE_ASSERT_RETURN(dataBase64.length() > 0,);
 
-        String filePath(File::getSpecialLocation(File::tempDirectory).getFullPathName());
+        water::String filePath(File::getSpecialLocation(File::tempDirectory).getFullPathName());
 
         filePath += CARLA_OS_SEP_STR ".CarlaChunk_";
         filePath += fShmAudioPool.getFilenameSuffix();
@@ -1116,10 +1102,10 @@ public:
             fShmNonRtClientControl.commitWrite();
         }
 
-        const uint32_t timeoutEnd = carla_gettime_ms() + 15*1000; // 15 secs
+        const uint32_t timeoutEnd = d_gettime_ms() + 15*1000; // 15 secs
         const bool needsEngineIdle = pData->engine->getType() != kEngineTypePlugin;
 
-        for (; carla_gettime_ms() < timeoutEnd && fBridgeThread.isThreadRunning();)
+        for (; d_gettime_ms() < timeoutEnd && fBridgeThread.isThreadRunning();)
         {
             pData->engine->callback(true, true, ENGINE_CALLBACK_IDLE, 0, 0, 0, 0, 0.0f, nullptr);
 
@@ -1133,7 +1119,7 @@ public:
                 break;
             }
 
-            carla_msleep(20);
+            d_msleep(20);
         }
 
         return reinterpret_cast<void*>(fPendingEmbedCustomUI);
@@ -1219,7 +1205,7 @@ public:
             needsCtrlOut = true;
 
         const uint portNameSize(pData->engine->getMaxPortNameSize());
-        CarlaString portName;
+        String portName;
 
         // Audio Ins
         for (uint32_t j=0; j < fInfo.aIns; ++j)
@@ -1239,7 +1225,7 @@ public:
             else if (fInfo.aIns > 1)
             {
                 portName += "input_";
-                portName += CarlaString(j+1);
+                portName += String(j+1);
             }
             else
                 portName += "input";
@@ -1268,7 +1254,7 @@ public:
             else if (fInfo.aOuts > 1)
             {
                 portName += "output_";
-                portName += CarlaString(j+1);
+                portName += String(j+1);
             }
             else
                 portName += "output";
@@ -1299,7 +1285,7 @@ public:
             else if (fInfo.cvIns > 1)
             {
                 portName += "cv_input_";
-                portName += CarlaString(j+1);
+                portName += String(j+1);
             }
             else
                 portName += "cv_input";
@@ -1328,7 +1314,7 @@ public:
             else if (fInfo.cvOuts > 1)
             {
                 portName += "cv_output_";
-                portName += CarlaString(j+1);
+                portName += String(j+1);
             }
             else
                 portName += "cv_output";
@@ -2207,7 +2193,7 @@ public:
                 if (fBridgeVersion < 9 || fBinaryType == BINARY_WIN32 || fBinaryType == BINARY_WIN64)
                #endif
                 {
-                    pData->hints &= ~PLUGIN_HAS_CUSTOM_EMBED_UI;
+                    pData->hints &= ~(PLUGIN_HAS_CUSTOM_EMBED_UI|PLUGIN_HAS_CUSTOM_RESIZABLE_UI);
                 }
 
                 fInfo.category = static_cast<PluginCategory>(category);
@@ -2531,13 +2517,13 @@ public:
                 {
                     const BridgeTextReader bigValueFilePath(fShmNonRtServerControl);
 
-                    String realBigValueFilePath(bigValueFilePath.text);
+                    water::String realBigValueFilePath(bigValueFilePath.text);
 
                    #ifndef CARLA_OS_WIN
                     // Using Wine, fix temp dir
                     if (fBinaryType == BINARY_WIN32 || fBinaryType == BINARY_WIN64)
                     {
-                        const StringArray driveLetterSplit(StringArray::fromTokens(realBigValueFilePath, ":/", ""));
+                        const water::StringArray driveLetterSplit(water::StringArray::fromTokens(realBigValueFilePath, ":/", ""));
                         carla_stdout("big value save path BEFORE => '%s' | using wineprefix '%s'", realBigValueFilePath.toRawUTF8(), fWinePrefix.buffer());
 
                         realBigValueFilePath  = fWinePrefix.buffer();
@@ -2572,13 +2558,13 @@ public:
                 // chunkFilePath
                 const BridgeTextReader chunkFilePath(fShmNonRtServerControl);
 
-                String realChunkFilePath(chunkFilePath.text);
+                water::String realChunkFilePath(chunkFilePath.text);
 
                #ifndef CARLA_OS_WIN
                 // Using Wine, fix temp dir
                 if (fBinaryType == BINARY_WIN32 || fBinaryType == BINARY_WIN64)
                 {
-                    const StringArray driveLetterSplit(StringArray::fromTokens(realChunkFilePath, ":/", ""));
+                    const water::StringArray driveLetterSplit(water::StringArray::fromTokens(realChunkFilePath, ":/", ""));
                     carla_stdout("chunk save path BEFORE => '%s' | using wineprefix '%s'", realChunkFilePath.toRawUTF8(), fWinePrefix.buffer());
 
                     realChunkFilePath  = fWinePrefix.buffer();
@@ -2594,7 +2580,7 @@ public:
                 const File chunkFile(realChunkFilePath.toRawUTF8());
                 CARLA_SAFE_ASSERT_BREAK(chunkFile.existsAsFile());
 
-                fInfo.chunk = carla_getChunkFromBase64String(chunkFile.loadFileAsString().toRawUTF8());
+                d_getChunkFromBase64String_impl(fInfo.chunk, chunkFile.loadFileAsString().toRawUTF8());
                 chunkFile.deleteFile();
             }   break;
 
@@ -2912,7 +2898,7 @@ private:
     uint fProcWaitTime;
     uint64_t fPendingEmbedCustomUI;
 
-    CarlaString             fBridgeBinary;
+    String fBridgeBinary;
     CarlaPluginBridgeThread fBridgeThread;
 
     BridgeAudioPool          fShmAudioPool;
@@ -2921,7 +2907,7 @@ private:
     BridgeNonRtServerControl fShmNonRtServerControl;
 
    #ifndef CARLA_OS_WIN
-    CarlaString fWinePrefix;
+    String fWinePrefix;
    #endif
 
     class ReceivingParamText {
@@ -2989,10 +2975,10 @@ private:
         uint32_t mIns, mOuts;
         PluginCategory category;
         uint optionsAvailable;
-        CarlaString name;
-        CarlaString label;
-        CarlaString maker;
-        CarlaString copyright;
+        String name;
+        String label;
+        String maker;
+        String copyright;
         const char** aInNames;
         const char** aOutNames;
         const char** cvInNames;
@@ -3204,7 +3190,7 @@ private:
             if (pData->engine->isAboutToClose() || pData->engine->wasActionCanceled())
                 break;
 
-            carla_msleep(5);
+            d_msleep(5);
         }
 
 #ifndef BUILD_BRIDGE_ALTERNATIVE_ARCH
@@ -3237,10 +3223,10 @@ private:
 #else
             void* data = &fInfo.chunk.front();
 #endif
-            CarlaString dataBase64(CarlaString::asBase64(data, dataSize));
+            String dataBase64(String::asBase64(data, dataSize));
             CARLA_SAFE_ASSERT_RETURN(dataBase64.length() > 0, true);
 
-            String filePath(File::getSpecialLocation(File::tempDirectory).getFullPathName());
+            water::String filePath(File::getSpecialLocation(File::tempDirectory).getFullPathName());
 
             filePath += CARLA_OS_SEP_STR ".CarlaChunk_";
             filePath += fShmAudioPool.getFilenameSuffix();
@@ -3263,7 +3249,7 @@ private:
 
     void _setUiTitleFromName()
     {
-        CarlaString uiName(pData->name);
+        String uiName(pData->name);
         uiName += " (GUI)";
 
         const uint32_t size = static_cast<uint32_t>(uiName.length());

@@ -1,10 +1,9 @@
-// SPDX-FileCopyrightText: 2011-2024 Filipe Coelho <falktx@falktx.com>
+// SPDX-FileCopyrightText: 2011-2025 Filipe Coelho <falktx@falktx.com>
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "CarlaUtils.h"
 
 #include "CarlaNative.h"
-#include "CarlaString.hpp"
 #include "CarlaBackendUtils.hpp"
 #include "CarlaLv2Utils.hpp"
 
@@ -178,7 +177,7 @@ static const CarlaCachedPluginInfo* get_cached_plugin_lv2(Lv2WorldClass& lv2Worl
     // text data
 
     {
-        static CarlaString suri, sname, smaker, slicense;
+        static String suri, sname, smaker, slicense;
         suri.clear(); sname.clear(); smaker.clear(); slicense.clear();
 
         suri = lilvPlugin.get_uri().as_uri();
@@ -263,15 +262,26 @@ static const CarlaCachedPluginInfo* get_cached_plugin_lv2(Lv2WorldClass& lv2Worl
                 if (false)
                #endif
                 {
-                    info.hints |= CB::PLUGIN_HAS_CUSTOM_EMBED_UI;
+                    info.hints |= CB::PLUGIN_HAS_CUSTOM_EMBED_UI|CB::PLUGIN_HAS_CUSTOM_RESIZABLE_UI;
+
+                    Lilv::Nodes lilvSupportedFeatureNodes(lilvUI.get_supported_features());
+                    LILV_FOREACH(nodes, it, lilvSupportedFeatureNodes)
+                    {
+                        Lilv::Node lilvFeatureNode(lilvSupportedFeatureNodes.get(it));
+                        const char* const featureURI(lilvFeatureNode.as_uri());
+                        CARLA_SAFE_ASSERT_CONTINUE(featureURI != nullptr);
+
+                        if (std::strcmp(featureURI, LV2_UI__noUserResize) == 0)
+                        {
+                            info.hints &= ~CB::PLUGIN_HAS_CUSTOM_RESIZABLE_UI;
+                            break;
+                        }
+                    }
+                    lilv_nodes_free(const_cast<LilvNodes*>(lilvSupportedFeatureNodes.me));
                     break;
                 }
             }
         }
-#ifdef CARLA_OS_LINUX
-        else if (lilvPlugin.get_modgui_resources_directory().as_uri() != nullptr)
-            info.hints |= CB::PLUGIN_HAS_CUSTOM_UI;
-#endif
 
         lilv_nodes_free(const_cast<LilvNodes*>(lilvUIs.me));
     }
@@ -589,7 +599,7 @@ static const CarlaCachedPluginInfo* get_cached_plugin_sfz(const water::File& fil
 {
     static CarlaCachedPluginInfo info;
 
-    static CarlaString name, filename;
+    static String name, filename;
 
     name = file.getFileNameWithoutExtension().toRawUTF8();
     name.replace('_',' ');
@@ -627,8 +637,8 @@ static const CarlaCachedPluginInfo* get_cached_plugin_jsfx(const CB::CarlaJsfxUn
 
     ysfx_config_u config(ysfx_config_new());
 
-    const CarlaString rootPath = unit.getRootPath();
-    const CarlaString filePath = unit.getFilePath();
+    const String rootPath = unit.getRootPath();
+    const String filePath = unit.getFilePath();
 
     ysfx_register_builtin_audio_formats(config.get());
     ysfx_set_import_root(config.get(), rootPath);
@@ -653,7 +663,7 @@ static const CarlaCachedPluginInfo* get_cached_plugin_jsfx(const CB::CarlaJsfxUn
         return &info;
     }
 
-    static CarlaString name, label, maker;
+    static String name, label, maker;
     label = unit.getFileId();
     name = ysfx_get_name(effect.get());
     maker = ysfx_get_author(effect.get());

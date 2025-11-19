@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2011-2024 Filipe Coelho <falktx@falktx.com>
+// SPDX-FileCopyrightText: 2011-2025 Filipe Coelho <falktx@falktx.com>
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 // TODO:
@@ -11,8 +11,10 @@
 #include "CarlaPlugin.hpp"
 
 #include "CarlaBackendUtils.hpp"
-#include "CarlaBase64Utils.hpp"
 #include "ThreadSafeFFTW.hpp"
+
+#include "extra/Base64.hpp"
+#include "extra/ScopedPointer.hpp"
 
 #include "water/files/File.h"
 
@@ -455,10 +457,10 @@ bool carla_engine_init_bridge(CarlaHostHandle handle,
     CARLA_SAFE_ASSERT_WITH_LAST_ERROR_RETURN(handle->isStandalone, "Must be a standalone host handle", false);
     CARLA_SAFE_ASSERT_WITH_LAST_ERROR_RETURN(handle->engine == nullptr, "Engine is already initialized", false);
 
-    CarlaScopedPointer<CarlaEngine> engine(CB::EngineInit::newBridge(audioBaseName,
-                                                                     rtClientBaseName,
-                                                                     nonRtClientBaseName,
-                                                                     nonRtServerBaseName));
+    ScopedPointer<CarlaEngine> engine(CB::EngineInit::newBridge(audioBaseName,
+                                                                rtClientBaseName,
+                                                                nonRtClientBaseName,
+                                                                nonRtServerBaseName));
 
     CARLA_SAFE_ASSERT_WITH_LAST_ERROR_RETURN(engine != nullptr, "The selected audio driver is not available", false);
 
@@ -1725,7 +1727,7 @@ const char* carla_get_custom_data_value(CarlaHostHandle handle, uint pluginId, c
         if (count == 0)
             return gNullCharPtr;
 
-        static CarlaString customDataValue;
+        static String customDataValue;
 
         for (uint32_t i=0; i<count; ++i)
         {
@@ -1756,9 +1758,9 @@ const char* carla_get_chunk_data(CarlaHostHandle handle, uint pluginId)
         const std::size_t dataSize(plugin->getChunkData(&data));
         CARLA_SAFE_ASSERT_RETURN(data != nullptr && dataSize > 0, gNullCharPtr);
 
-        static CarlaString chunkData;
+        static String chunkData;
 
-        chunkData = CarlaString::asBase64(data, static_cast<std::size_t>(dataSize));
+        chunkData = String::asBase64(data, static_cast<std::size_t>(dataSize));
         return chunkData.buffer();
     }
 
@@ -2218,7 +2220,8 @@ void carla_set_chunk_data(CarlaHostHandle handle, uint pluginId, const char* chu
     {
         CARLA_SAFE_ASSERT_RETURN(plugin->getOptionsEnabled() & CB::PLUGIN_OPTION_USE_CHUNKS,);
 
-        std::vector<uint8_t> chunk(carla_getChunkFromBase64String(chunkData));
+        std::vector<uint8_t> chunk;
+        d_getChunkFromBase64String_impl(chunk, chunkData);
 #ifdef CARLA_PROPER_CPP11_SUPPORT
         plugin->setChunkData(chunk.data(), chunk.size());
 #else

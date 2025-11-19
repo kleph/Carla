@@ -1,6 +1,6 @@
 /*
  * DISTRHO Plugin Framework (DPF)
- * Copyright (C) 2012-2022 Filipe Coelho <falktx@falktx.com>
+ * Copyright (C) 2012-2025 Filipe Coelho <falktx@falktx.com>
  *
  * Permission to use, copy, modify, and/or distribute this software for any purpose with
  * or without fee is hereby granted, provided that the above copyright notice and this
@@ -27,15 +27,26 @@ START_NAMESPACE_DGL
 Window::ScopedGraphicsContext::ScopedGraphicsContext(Window& win)
     : window(win),
       ppData(nullptr),
-      active(puglBackendEnter(window.pData->view)) {}
+      active(window.pData->view != nullptr && puglBackendEnter(window.pData->view)),
+      reenter(false)
+{
+    if (active)
+        window.pData->createContextIfNeeded();
+}
 
 Window::ScopedGraphicsContext::ScopedGraphicsContext(Window& win, Window& transientWin)
     : window(win),
       ppData(transientWin.pData),
-      active(false)
+      active(false),
+      reenter(window.pData->view != nullptr)
 {
-    puglBackendLeave(ppData->view);
-    active = puglBackendEnter(window.pData->view);
+    if (reenter)
+    {
+        puglBackendLeave(ppData->view);
+        active = puglBackendEnter(window.pData->view);
+        if (active)
+            window.pData->createContextIfNeeded();
+    }
 }
 
 Window::ScopedGraphicsContext::~ScopedGraphicsContext()
@@ -51,11 +62,24 @@ void Window::ScopedGraphicsContext::done()
         active = false;
     }
 
-    if (ppData != nullptr)
+    if (reenter)
     {
+        reenter = false;
+        DISTRHO_SAFE_ASSERT_RETURN(ppData != nullptr,);
+
         puglBackendEnter(ppData->view);
-        ppData = nullptr;
     }
+}
+
+void Window::ScopedGraphicsContext::reinit()
+{
+    DISTRHO_SAFE_ASSERT_RETURN(!active,);
+    DISTRHO_SAFE_ASSERT_RETURN(!reenter,);
+    DISTRHO_SAFE_ASSERT_RETURN(ppData != nullptr,);
+
+    reenter = true;
+    puglBackendLeave(ppData->view);
+    active = puglBackendEnter(window.pData->view);
 }
 
 // -----------------------------------------------------------------------
@@ -88,7 +112,7 @@ Window::Window(Application& app,
                const uint height,
                const double scaleFactor,
                const bool resizable)
-    : pData(new PrivateData(app, this, parentWindowHandle, width, height, scaleFactor, resizable, false))
+    : pData(new PrivateData(app, this, parentWindowHandle, width, height, scaleFactor, resizable, false, false))
 {
     pData->initPost();
 }
@@ -99,9 +123,11 @@ Window::Window(Application& app,
                const uint height,
                const double scaleFactor,
                const bool resizable,
-               const bool isVST3,
+               const bool usesScheduledRepaints,
+               const bool usesSizeRequest,
                const bool doPostInit)
-    : pData(new PrivateData(app, this, parentWindowHandle, width, height, scaleFactor, resizable, isVST3))
+    : pData(new PrivateData(app, this, parentWindowHandle, width, height, scaleFactor, resizable,
+                            usesScheduledRepaints, usesSizeRequest))
 {
     if (doPostInit)
         pData->initPost();
@@ -147,7 +173,8 @@ void Window::close()
 
 bool Window::isResizable() const noexcept
 {
-    return puglGetViewHint(pData->view, PUGL_RESIZABLE) == PUGL_TRUE;
+    return pData->view != nullptr
+        && puglGetViewHint(pData->view, PUGL_RESIZABLE) == PUGL_TRUE;
 }
 
 void Window::setResizable(const bool resizable)
@@ -159,22 +186,22 @@ int Window::getOffsetX() const noexcept
 {
     DISTRHO_SAFE_ASSERT_RETURN(pData->view != nullptr, 0);
 
-    return puglGetFrame(pData->view).x;
+    return puglGetPositionHint(pData->view, PUGL_CURRENT_POSITION).x;
 }
 
 int Window::getOffsetY() const noexcept
 {
     DISTRHO_SAFE_ASSERT_RETURN(pData->view != nullptr, 0);
 
-    return puglGetFrame(pData->view).y;
+    return puglGetPositionHint(pData->view, PUGL_CURRENT_POSITION).y;
 }
 
 Point<int> Window::getOffset() const noexcept
 {
     DISTRHO_SAFE_ASSERT_RETURN(pData->view != nullptr, Point<int>());
 
-    const PuglRect rect = puglGetFrame(pData->view);
-    return Point<int>(rect.x, rect.y);
+    const PuglPoint pos = puglGetPositionHint(pData->view, PUGL_CURRENT_POSITION);
+    return Point<int>(pos.x, pos.y);
 }
 
 void Window::setOffsetX(const int x)
@@ -189,7 +216,11 @@ void Window::setOffsetY(const int y)
 
 void Window::setOffset(const int x, const int y)
 {
-    puglSetPosition(pData->view, x, y);
+    // do not call this for embed windows!
+    DISTRHO_SAFE_ASSERT_RETURN(!pData->isEmbed,);
+
+    if (pData->view != nullptr)
+        puglSetPositionHint(pData->view, PUGL_CURRENT_POSITION, x, y);
 }
 
 void Window::setOffset(const Point<int>& offset)
@@ -201,29 +232,28 @@ uint Window::getWidth() const noexcept
 {
     DISTRHO_SAFE_ASSERT_RETURN(pData->view != nullptr, 0);
 
-    const double width = puglGetFrame(pData->view).width;
-    DISTRHO_SAFE_ASSERT_RETURN(width >= 0.0, 0);
-    return static_cast<uint>(width + 0.5);
+    const PuglSpan width = puglGetSizeHint(pData->view, PUGL_CURRENT_SIZE).width;
+    DISTRHO_SAFE_ASSERT(width > 0);
+    return width;
 }
 
 uint Window::getHeight() const noexcept
 {
     DISTRHO_SAFE_ASSERT_RETURN(pData->view != nullptr, 0);
 
-    const double height = puglGetFrame(pData->view).height;
-    DISTRHO_SAFE_ASSERT_RETURN(height >= 0.0, 0);
-    return static_cast<uint>(height + 0.5);
+    const PuglSpan height = puglGetSizeHint(pData->view, PUGL_CURRENT_SIZE).height;
+    DISTRHO_SAFE_ASSERT(height > 0);
+    return height;
 }
 
 Size<uint> Window::getSize() const noexcept
 {
     DISTRHO_SAFE_ASSERT_RETURN(pData->view != nullptr, Size<uint>());
 
-    const PuglRect rect = puglGetFrame(pData->view);
-    DISTRHO_SAFE_ASSERT_RETURN(rect.width >= 0.0, Size<uint>());
-    DISTRHO_SAFE_ASSERT_RETURN(rect.height >= 0.0, Size<uint>());
-    return Size<uint>(static_cast<uint>(rect.width + 0.5),
-                      static_cast<uint>(rect.height + 0.5));
+    const PuglArea size = puglGetSizeHint(pData->view, PUGL_CURRENT_SIZE);
+    DISTRHO_SAFE_ASSERT(size.width > 0);
+    DISTRHO_SAFE_ASSERT(size.height > 0);
+    return Size<uint>(size.width, size.height);
 }
 
 void Window::setWidth(const uint width)
@@ -246,10 +276,10 @@ void Window::setSize(uint width, uint height)
         uint minWidth = pData->minWidth;
         uint minHeight = pData->minHeight;
 
-        if (pData->autoScaling && scaleFactor != 1.0)
+        if (pData->autoScaling && d_isNotEqual(scaleFactor, 1.0))
         {
-            minWidth *= scaleFactor;
-            minHeight *= scaleFactor;
+            minWidth = d_roundToUnsignedInt(minWidth * scaleFactor);
+            minHeight = d_roundToUnsignedInt(minHeight * scaleFactor);
         }
 
         // handle geometry constraints here
@@ -270,10 +300,10 @@ void Window::setSize(uint width, uint height)
             {
                 // fix width
                 if (reqRatio > ratio)
-                    width = static_cast<uint>(height * ratio + 0.5);
+                    width = d_roundToUnsignedInt(height * ratio);
                 // fix height
                 else
-                    height = static_cast<uint>(static_cast<double>(width) / ratio + 0.5);
+                    height = d_roundToUnsignedInt(static_cast<double>(width) / ratio);
             }
         }
     }
@@ -287,9 +317,19 @@ void Window::setSize(uint width, uint height)
 
         topLevelWidget->requestSizeChange(width, height);
     }
-    else
+    else if (pData->view != nullptr)
     {
         puglSetSizeAndDefault(pData->view, width, height);
+
+        // there are no resize events for closed windows, so short-circuit the top-level widgets here
+        if (pData->isClosed)
+        {
+            for (std::list<TopLevelWidget*>::iterator it = pData->topLevelWidgets.begin(),
+                                                      end = pData->topLevelWidgets.end(); it != end; ++it)
+            {
+                ((Widget*)*it)->setSize(width, height);
+            }
+        }
     }
 }
 
@@ -300,23 +340,25 @@ void Window::setSize(const Size<uint>& size)
 
 const char* Window::getTitle() const noexcept
 {
-    return puglGetWindowTitle(pData->view);
+    return pData->view != nullptr ? puglGetViewString(pData->view, PUGL_WINDOW_TITLE) : "";
 }
 
 void Window::setTitle(const char* const title)
 {
     if (pData->view != nullptr)
-        puglSetWindowTitle(pData->view, title);
+        puglSetViewString(pData->view, PUGL_WINDOW_TITLE, title);
 }
 
 bool Window::isIgnoringKeyRepeat() const noexcept
 {
-    return puglGetViewHint(pData->view, PUGL_IGNORE_KEY_REPEAT) == PUGL_TRUE;
+    return pData->view != nullptr
+        && puglGetViewHint(pData->view, PUGL_IGNORE_KEY_REPEAT) == PUGL_TRUE;
 }
 
 void Window::setIgnoringKeyRepeat(const bool ignore) noexcept
 {
-    puglSetViewHint(pData->view, PUGL_IGNORE_KEY_REPEAT, ignore);
+    if (pData->view != nullptr)
+        puglSetViewHint(pData->view, PUGL_IGNORE_KEY_REPEAT, ignore);
 }
 
 const void* Window::getClipboard(size_t& dataSize)
@@ -326,12 +368,14 @@ const void* Window::getClipboard(size_t& dataSize)
 
 bool Window::setClipboard(const char* const mimeType, const void* const data, const size_t dataSize)
 {
-    return puglSetClipboard(pData->view, mimeType != nullptr ? mimeType : "text/plain", data, dataSize) == PUGL_SUCCESS;
+    return pData->view != nullptr
+        && puglSetClipboard(pData->view, mimeType != nullptr ? mimeType : "text/plain", data, dataSize) == PUGL_SUCCESS;
 }
 
 bool Window::setCursor(const MouseCursor cursor)
 {
-    return puglSetCursor(pData->view, static_cast<PuglCursor>(cursor)) == PUGL_SUCCESS;
+    return pData->view != nullptr
+        && puglSetCursor(pData->view, static_cast<PuglCursor>(cursor)) == PUGL_SUCCESS;
 }
 
 bool Window::addIdleCallback(IdleCallback* const callback, const uint timerFrequencyInMs)
@@ -353,16 +397,14 @@ Application& Window::getApp() const noexcept
     return pData->app;
 }
 
-#ifndef DPF_TEST_WINDOW_CPP
 const GraphicsContext& Window::getGraphicsContext() const noexcept
 {
     return pData->getGraphicsContext();
 }
-#endif
 
 uintptr_t Window::getNativeWindowHandle() const noexcept
 {
-    return puglGetNativeView(pData->view);
+    return pData->view != nullptr ? puglGetNativeView(pData->view) : 0;
 }
 
 double Window::getScaleFactor() const noexcept
@@ -375,10 +417,24 @@ void Window::focus()
     pData->focus();
 }
 
-#ifndef DGL_FILE_BROWSER_DISABLED
+#ifdef DGL_USE_FILE_BROWSER
 bool Window::openFileBrowser(const FileBrowserOptions& options)
 {
     return pData->openFileBrowser(options);
+}
+#endif
+
+#ifdef DGL_USE_WEB_VIEW
+bool Window::createWebView(const char* const url, const DGL_NAMESPACE::WebViewOptions& options)
+{
+    return pData->createWebView(url, options);
+}
+
+void Window::evaluateJS(const char* const js)
+{
+    DISTRHO_SAFE_ASSERT_RETURN(pData->webViewHandle != nullptr,);
+
+    webViewEvaluateJS(pData->webViewHandle, js);
 }
 #endif
 
@@ -387,7 +443,10 @@ void Window::repaint() noexcept
     if (pData->view == nullptr)
         return;
 
-    puglPostRedisplay(pData->view);
+    if (pData->usesScheduledRepaints)
+        pData->appData->needsRepaint = true;
+
+    puglObscureView(pData->view);
 }
 
 void Window::repaint(const Rectangle<uint>& rect) noexcept
@@ -395,22 +454,25 @@ void Window::repaint(const Rectangle<uint>& rect) noexcept
     if (pData->view == nullptr)
         return;
 
-    PuglRect prect = {
-        static_cast<PuglCoord>(rect.getX()),
-        static_cast<PuglCoord>(rect.getY()),
-        static_cast<PuglSpan>(rect.getWidth()),
-        static_cast<PuglSpan>(rect.getHeight()),
-    };
+    if (pData->usesScheduledRepaints)
+        pData->appData->needsRepaint = true;
+
+    int x = static_cast<int>(rect.getX());
+    int y = static_cast<int>(rect.getY());
+    uint width = rect.getWidth();
+    uint height = rect.getHeight();
+
     if (pData->autoScaling)
     {
         const double autoScaleFactor = pData->autoScaleFactor;
 
-        prect.x *= autoScaleFactor;
-        prect.y *= autoScaleFactor;
-        prect.width *= autoScaleFactor;
-        prect.height *= autoScaleFactor;
+        x = d_roundToIntPositive(x * autoScaleFactor);
+        y = d_roundToIntPositive(y * autoScaleFactor);
+        width = d_roundToUnsignedInt(width * autoScaleFactor);
+        height = d_roundToUnsignedInt(height * autoScaleFactor);
     }
-    puglPostRedisplayRect(pData->view, prect);
+
+    puglObscureRegion(pData->view, x, y, width, height);
 }
 
 void Window::renderToPicture(const char* const filename)
@@ -433,10 +495,14 @@ void Window::setGeometryConstraints(uint minimumWidth,
                                     uint minimumHeight,
                                     const bool keepAspectRatio,
                                     const bool automaticallyScale,
-                                    const bool resizeNowIfAutoScaling)
+                                    bool resizeNowIfAutoScaling)
 {
     DISTRHO_SAFE_ASSERT_RETURN(minimumWidth > 0,);
     DISTRHO_SAFE_ASSERT_RETURN(minimumHeight > 0,);
+
+    // prevent auto-scaling up 2x
+    if (resizeNowIfAutoScaling && automaticallyScale && pData->autoScaling == automaticallyScale)
+        resizeNowIfAutoScaling = false;
 
     pData->minWidth = minimumWidth;
     pData->minHeight = minimumHeight;
@@ -450,8 +516,8 @@ void Window::setGeometryConstraints(uint minimumWidth,
 
     if (automaticallyScale && scaleFactor != 1.0)
     {
-        minimumWidth *= scaleFactor;
-        minimumHeight *= scaleFactor;
+        minimumWidth = d_roundToUnsignedInt(minimumWidth * scaleFactor);
+        minimumHeight = d_roundToUnsignedInt(minimumHeight * scaleFactor);
     }
 
     puglSetGeometryConstraints(pData->view, minimumWidth, minimumHeight, keepAspectRatio);
@@ -460,19 +526,23 @@ void Window::setGeometryConstraints(uint minimumWidth,
     {
         const Size<uint> size(getSize());
 
-        setSize(static_cast<uint>(size.getWidth() * scaleFactor + 0.5),
-                static_cast<uint>(size.getHeight() * scaleFactor + 0.5));
+        setSize(d_roundToUnsignedInt(size.getWidth() * scaleFactor),
+                d_roundToUnsignedInt(size.getHeight() * scaleFactor));
     }
 }
 
 void Window::setTransientParent(const uintptr_t transientParentWindowHandle)
 {
-    puglSetTransientParent(pData->view, transientParentWindowHandle);
+    if (pData->view != nullptr)
+        puglSetTransientParent(pData->view, transientParentWindowHandle);
 }
 
 std::vector<ClipboardDataOffer> Window::getClipboardDataOfferTypes()
 {
     std::vector<ClipboardDataOffer> offerTypes;
+
+    if (pData->view == nullptr)
+        return offerTypes;
 
     if (const uint32_t numTypes = puglGetNumClipboardTypes(pData->view))
     {
@@ -511,16 +581,17 @@ void Window::onFocus(bool, CrossingMode)
 {
 }
 
+#if DGL_ALLOW_DEPRECATED_METHODS
 void Window::onReshape(uint, uint)
 {
-    puglFallbackOnResize(pData->view);
 }
+#endif
 
 void Window::onScaleFactorChanged(double)
 {
 }
 
-#ifndef DGL_FILE_BROWSER_DISABLED
+#ifdef DGL_USE_FILE_BROWSER
 void Window::onFileSelected(const char*)
 {
 }

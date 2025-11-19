@@ -21,13 +21,16 @@ elif qt_config == 6:
         QDialog,
         QDialogButtonBox,
         QFileDialog,
+        QFrame,
         QGraphicsItem,
         QGraphicsScene,
         QGraphicsView,
         QHeaderView,
+        QLineEdit,
         QListWidgetItem,
         QMenu,
         QMessageBox,
+        QSizePolicy,
         QStyle,
     )
 
@@ -36,10 +39,15 @@ elif qt_config == 6:
 
     Qt.AA_DontShowIconsInMenus = Qt.ApplicationAttribute.AA_DontShowIconsInMenus
 
+    Qt.DownArrow = Qt.ArrowType.DownArrow
+    Qt.RightArrow = Qt.ArrowType.RightArrow
+
     Qt.IgnoreAspectRatio = Qt.AspectRatioMode.IgnoreAspectRatio
     Qt.KeepAspectRatio = Qt.AspectRatioMode.KeepAspectRatio
 
     Qt.NoBrush = Qt.BrushStyle.NoBrush
+
+    Qt.ToolButtonTextBesideIcon = Qt.ToolButtonStyle.ToolButtonTextBesideIcon
 
     Qt.Checked = Qt.CheckState.Checked
     Qt.Unchecked = Qt.CheckState.Unchecked
@@ -83,6 +91,8 @@ elif qt_config == 6:
     Qt.Key_E = Qt.Key.Key_E
     Qt.Key_Eacute = Qt.Key.Key_Eacute
     Qt.Key_Egrave = Qt.Key.Key_Egrave
+    Qt.Key_End = Qt.Key.Key_End
+    Qt.Key_Enter = Qt.Key.Key_Enter
     Qt.Key_Escape = Qt.Key.Key_Escape
     Qt.Key_F = Qt.Key.Key_F
     Qt.Key_G = Qt.Key.Key_G
@@ -95,12 +105,16 @@ elif qt_config == 6:
     Qt.Key_N = Qt.Key.Key_N
     Qt.Key_O = Qt.Key.Key_O
     Qt.Key_P = Qt.Key.Key_P
+    Qt.Key_PageDown = Qt.Key.Key_PageDown
+    Qt.Key_PageUp = Qt.Key.Key_PageUp
     Qt.Key_ParenLeft = Qt.Key.Key_ParenLeft
     Qt.Key_Plus = Qt.Key.Key_Plus
     Qt.Key_Q = Qt.Key.Key_Q
     Qt.Key_QuoteDbl = Qt.Key.Key_QuoteDbl
     Qt.Key_R = Qt.Key.Key_R
+    Qt.Key_Return = Qt.Key.Key_Return
     Qt.Key_S = Qt.Key.Key_S
+    Qt.Key_Space = Qt.Key.Key_Space
     Qt.Key_T = Qt.Key.Key_T
     Qt.Key_U = Qt.Key.Key_U
     Qt.Key_V = Qt.Key.Key_V
@@ -132,8 +146,10 @@ elif qt_config == 6:
     Qt.Horizontal = Qt.Orientation.Horizontal
 
     Qt.FlatCap = Qt.PenCapStyle.FlatCap
+    Qt.RoundCap = Qt.PenCapStyle.RoundCap
 
     Qt.MiterJoin = Qt.PenJoinStyle.MiterJoin
+    Qt.RoundJoin = Qt.PenJoinStyle.RoundJoin
 
     Qt.DashLine = Qt.PenStyle.DashLine
     Qt.NoPen = Qt.PenStyle.NoPen
@@ -143,6 +159,11 @@ elif qt_config == 6:
     Qt.ScrollBarAlwaysOff = Qt.ScrollBarPolicy.ScrollBarAlwaysOff
 
     Qt.AscendingOrder = Qt.SortOrder.AscendingOrder
+
+    Qt.TextSelectableByMouse = Qt.TextInteractionFlag.TextSelectableByMouse
+
+    Qt.ToolButtonIconOnly = Qt.ToolButtonStyle.ToolButtonIconOnly
+    Qt.ToolButtonTextBesideIcon = Qt.ToolButtonStyle.ToolButtonTextBesideIcon
 
     Qt.SmoothTransformation = Qt.TransformationMode.SmoothTransformation
 
@@ -173,6 +194,7 @@ elif qt_config == 6:
 
     QDialog.exec_ = lambda d: d.exec()
 
+    QDialogButtonBox.Ok = QDialogButtonBox.StandardButton.Ok
     QDialogButtonBox.Reset = QDialogButtonBox.StandardButton.Reset
 
     QEvent.EnabledChange = QEvent.Type.EnabledChange
@@ -195,6 +217,12 @@ elif qt_config == 6:
     QFont.Bold = QFont.Weight.Bold
     QFont.Normal = QFont.Weight.Normal
 
+    QFrame.HLine = QFrame.Shape.HLine
+    QFrame.StyledPanel = QFrame.Shape.StyledPanel
+
+    QFrame.Raised = QFrame.Shadow.Raised
+    QFrame.Sunken = QFrame.Shadow.Sunken
+
     QGraphicsItem.ItemSelectedHasChanged = QGraphicsItem.GraphicsItemChange.ItemSelectedHasChanged
 
     QGraphicsItem.ItemIsFocusable = QGraphicsItem.GraphicsItemFlag.ItemIsFocusable
@@ -211,6 +239,9 @@ elif qt_config == 6:
     QGraphicsView.MinimalViewportUpdate = QGraphicsView.ViewportUpdateMode.MinimalViewportUpdate
 
     QHeaderView.Fixed = QHeaderView.ResizeMode.Fixed
+    QHeaderView.ResizeToContents = QHeaderView.ResizeMode.ResizeToContents
+
+    QLineEdit.Normal = QLineEdit.EchoMode.Normal
 
     QListWidgetItem.UserType = QListWidgetItem.ItemType.UserType
 
@@ -218,8 +249,14 @@ elif qt_config == 6:
 
     QMessageBox.exec_ = lambda mb: mb.exec()
 
+    QMessageBox.Cancel = QMessageBox.StandardButton.Cancel
     QMessageBox.No = QMessageBox.StandardButton.No
+    QMessageBox.Ok = QMessageBox.StandardButton.Ok
     QMessageBox.Yes = QMessageBox.StandardButton.Yes
+
+    QMessageBox.Critical = QMessageBox.Icon.Critical
+    QMessageBox.Information = QMessageBox.Icon.Information
+    QMessageBox.Warning = QMessageBox.Icon.Warning
 
     QPainter.CompositionMode_Difference = QPainter.CompositionMode.CompositionMode_Difference
     QPainter.CompositionMode_Multiply = QPainter.CompositionMode.CompositionMode_Multiply
@@ -256,6 +293,10 @@ elif qt_config == 6:
     QPalette.Window = QPalette.ColorRole.Window
     QPalette.WindowText = QPalette.ColorRole.WindowText
 
+    # TODO remove this QPalette.Background is deprecated already in Qt5
     QPalette.Background = QPalette.Window
+
+    QSizePolicy.Expanding = QSizePolicy.Policy.Expanding
+    QSizePolicy.Preferred = QSizePolicy.Policy.Preferred
 
     QStyle.State_Selected = QStyle.StateFlag.State_Selected

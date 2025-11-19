@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2011-2024 Filipe Coelho <falktx@falktx.com>
+// SPDX-FileCopyrightText: 2011-2025 Filipe Coelho <falktx@falktx.com>
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "CarlaPluginInternal.hpp"
@@ -22,6 +22,7 @@
 # warning No liblo support, NSM (session state) will not be available
 #endif
 
+#include "extra/ScopedPointer.hpp"
 #include "water/files/File.h"
 #include "water/misc/Time.h"
 #include "water/text/StringArray.h"
@@ -36,8 +37,6 @@
 
 using water::ChildProcess;
 using water::File;
-using water::String;
-using water::StringArray;
 
 CARLA_BACKEND_START_NAMESPACE
 
@@ -126,12 +125,12 @@ public:
     char* getEnvVarsToExport()
     {
         const EngineOptions& options(kEngine->getOptions());
-        CarlaString binaryDir(options.binaryDir);
+        String binaryDir(options.binaryDir);
        #ifdef HAVE_LIBLO
         const int sessionManager = fSetupLabel[4U] - '0';
        #endif
 
-        CarlaString ret;
+        String ret;
        #ifdef CARLA_OS_MAC
         ret += "export DYLD_LIBRARY_PATH=" + binaryDir + "/jack\n";
         ret += "export DYLD_INSERT_LIBRARIES=" + binaryDir + "/libcarla_interposer-jack-x11.dylib\n";
@@ -144,7 +143,7 @@ public:
         if (sessionManager == LIBJACK_SESSION_MANAGER_NSM)
         {
             for (int i=50; fOscServer == nullptr && --i>=0;)
-                carla_msleep(100);
+                d_msleep(100);
 
             ret += "export NSM_URL=";
             ret += lo_server_get_url(fOscServer);
@@ -153,12 +152,12 @@ public:
        #endif
 
         if (kPlugin->getHints() & PLUGIN_HAS_CUSTOM_UI)
-            ret += "export CARLA_FRONTEND_WIN_ID=" + CarlaString(options.frontendWinId) + "\n";
+            ret += "export CARLA_FRONTEND_WIN_ID=" + String(options.frontendWinId) + "\n";
 
         ret += "export CARLA_LIBJACK_SETUP=" + fSetupLabel + "\n";
         ret += "export CARLA_SHM_IDS=" + fShmIds + "\n";
 
-        return ret.releaseBufferPointer();
+        return ret.getAndReleaseBuffer();
     }
 
 protected:
@@ -333,15 +332,15 @@ protected:
                 carla_stderr("CarlaPluginJackThread::run() - already running");
             }
 
-            String name(kPlugin->getName());
-            String filename(kPlugin->getFilename());
+            water::String name(kPlugin->getName());
+            water::String filename(kPlugin->getFilename());
 
             if (name.isEmpty())
                 name = "(none)";
 
             CARLA_SAFE_ASSERT_RETURN(filename.isNotEmpty(),);
 
-            StringArray arguments;
+            water::StringArray arguments;
 
             // binary
             arguments.addTokens(filename, true);
@@ -352,11 +351,11 @@ protected:
             std::snprintf(winIdStr, STR_MAX, P_UINTPTR, options.frontendWinId);
             winIdStr[STR_MAX] = '\0';
 
-            const CarlaString libjackdir(CarlaString(options.binaryDir) + "/jack");
+            const String libjackdir(String(options.binaryDir) + "/jack");
            #ifdef CARLA_OS_MAC
-            const CarlaString ldpreload(CarlaString(options.binaryDir) + "/libcarla_interposer-jack-x11.dylib");
+            const String ldpreload(String(options.binaryDir) + "/libcarla_interposer-jack-x11.dylib");
            #else
-            const CarlaString ldpreload(CarlaString(options.binaryDir) + "/libcarla_interposer-jack-x11.so");
+            const String ldpreload(String(options.binaryDir) + "/libcarla_interposer-jack-x11.so");
            #endif
 
             const ScopedEngineEnvironmentLocker _seel(kEngine);
@@ -399,7 +398,7 @@ protected:
             else
 #endif
             {
-                carla_msleep(50);
+                d_msleep(50);
             }
         }
 
@@ -437,7 +436,7 @@ protected:
                 {
                     carla_stderr("CarlaPluginJackThread::run() - application crashed");
 
-                    CarlaString errorString("Plugin '" + CarlaString(kPlugin->getName()) + "' has crashed!\n"
+                    String errorString("Plugin '" + String(kPlugin->getName()) + "' has crashed!\n"
                                             "Saving now will lose its current settings.\n"
                                             "Please remove this plugin, and not rely on it from this point.");
                     kEngine->callback(true, true,
@@ -457,8 +456,8 @@ private:
     CarlaEngine* const kEngine;
     CarlaPlugin* const kPlugin;
 
-    CarlaString fShmIds;
-    CarlaString fSetupLabel;
+    String fShmIds;
+    String fSetupLabel;
 
 #ifdef HAVE_LIBLO
     lo_address fOscClientAddress;
@@ -466,10 +465,10 @@ private:
     bool fHasOptionalGui;
 
     struct ProjectData {
-        CarlaString appName;
-        CarlaString path;
-        CarlaString display;
-        CarlaString clientName;
+        String appName;
+        String path;
+        String display;
+        String clientName;
 
         ProjectData()
             : appName(),
@@ -485,7 +484,7 @@ private:
             CARLA_SAFE_ASSERT_RETURN(uniqueCodeID != nullptr && uniqueCodeID[0] != '\0', false);
             CARLA_SAFE_ASSERT_RETURN(appName.isNotEmpty(), false);
 
-            CarlaString child(pluginName);
+            String child(pluginName);
             child += ".";
             child += uniqueCodeID;
 
@@ -502,7 +501,7 @@ private:
     } fProject;
 #endif
 
-    CarlaScopedPointer<ChildProcess> fProcess;
+    ScopedPointer<ChildProcess> fProcess;
 
     CARLA_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(CarlaPluginJackThread)
 };
@@ -849,7 +848,7 @@ public:
             needsCtrlOut = true;
 
         const uint portNameSize(pData->engine->getMaxPortNameSize());
-        CarlaString portName;
+        String portName;
 
         // Audio Ins
         for (uint8_t j=0; j < fInfo.aIns; ++j)
@@ -865,7 +864,7 @@ public:
             if (fInfo.aIns > 1)
             {
                 portName += "audio_in_";
-                portName += CarlaString(j+1);
+                portName += String(j+1);
             }
             else
             {
@@ -892,7 +891,7 @@ public:
             if (fInfo.aOuts > 1)
             {
                 portName += "audio_out_";
-                portName += CarlaString(j+1);
+                portName += String(j+1);
             }
             else
             {
@@ -1140,7 +1139,7 @@ public:
                         break;
 
                     case kEngineControlEventTypeMidiBank:
-                        if (pData->options & PLUGIN_OPTION_MAP_PROGRAM_CHANGES)
+                        if (pData->options & PLUGIN_OPTION_SEND_PROGRAM_CHANGES)
                         {
                             fShmRtClientControl.writeOpcode(kPluginBridgeRtClientControlEventMidiBank);
                             fShmRtClientControl.writeUInt(event.time);
@@ -1151,7 +1150,7 @@ public:
                         break;
 
                     case kEngineControlEventTypeMidiProgram:
-                        if (pData->options & PLUGIN_OPTION_MAP_PROGRAM_CHANGES)
+                        if (pData->options & PLUGIN_OPTION_SEND_PROGRAM_CHANGES)
                         {
                             fShmRtClientControl.writeOpcode(kPluginBridgeRtClientControlEventMidiProgram);
                             fShmRtClientControl.writeUInt(event.time);
@@ -1809,7 +1808,7 @@ private:
     struct Info {
         uint8_t aIns, aOuts;
         uint8_t mIns, mOuts;
-        CarlaString setupLabel;
+        String setupLabel;
         std::vector<uint8_t> chunk;
 
         Info()
@@ -1872,7 +1871,7 @@ private:
         char code[6];
         code[5] = '\0';
 
-        CarlaString child;
+        String child;
 
         for (;;)
         {
@@ -1951,21 +1950,21 @@ private:
         const bool needsCancelableAction = ! pData->engine->isLoadingProject();
         const bool needsEngineIdle = pData->engine->getType() != kEngineTypePlugin;
 
-        CarlaString actionName;
+        String actionName;
 
         if (needsCancelableAction)
         {
             if (fSetupHints & LIBJACK_FLAG_EXTERNAL_START)
             {
                 const EngineOptions& options(pData->engine->getOptions());
-                CarlaString binaryDir(options.binaryDir);
+                String binaryDir(options.binaryDir);
 
                 char* const hwVars = fBridgeThread.getEnvVarsToExport();
 
                 actionName  = "Waiting for external JACK application start, please use the following environment variables:\n";
                 actionName += hwVars;
 
-                delete[] hwVars;
+                std::free(hwVars);
             }
             else
             {
@@ -1995,7 +1994,7 @@ private:
             if (pData->engine->isAboutToClose() || pData->engine->wasActionCanceled())
                 break;
 
-            carla_msleep(5);
+            d_msleep(5);
         }
 
         if (needsCancelableAction)

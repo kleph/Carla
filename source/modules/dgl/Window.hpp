@@ -1,6 +1,6 @@
 /*
  * DISTRHO Plugin Framework (DPF)
- * Copyright (C) 2012-2022 Filipe Coelho <falktx@falktx.com>
+ * Copyright (C) 2012-2025 Filipe Coelho <falktx@falktx.com>
  *
  * Permission to use, copy, modify, and/or distribute this software for any purpose with
  * or without fee is hereby granted, provided that the above copyright notice and this
@@ -19,8 +19,12 @@
 
 #include "Geometry.hpp"
 
-#ifndef DGL_FILE_BROWSER_DISABLED
+#ifdef DGL_USE_FILE_BROWSER
 # include "FileBrowserDialog.hpp"
+#endif
+
+#ifdef DGL_USE_WEB_VIEW
+# include "WebView.hpp"
 #endif
 
 #include <vector>
@@ -105,13 +109,17 @@ public:
         /** Early context clearing, useful for standalone windows not created by you. */
         void done();
 
+        /** Get a valid context back again. */
+        void reinit();
+
         DISTRHO_DECLARE_NON_COPYABLE(ScopedGraphicsContext)
         DISTRHO_PREVENT_HEAP_ALLOCATION
 
     private:
         Window& window;
-        Window::PrivateData* ppData;
+        Window::PrivateData* const ppData;
         bool active;
+        bool reenter;
     };
 
    /**
@@ -390,7 +398,7 @@ public:
     */
     void focus();
 
-#ifndef DGL_FILE_BROWSER_DISABLED
+   #ifdef DGL_USE_FILE_BROWSER
    /**
       Open a file browser dialog with this window as transient parent.
       A few options can be specified to setup the dialog.
@@ -401,7 +409,28 @@ public:
       This function does not block the event loop.
     */
     bool openFileBrowser(const DGL_NAMESPACE::FileBrowserOptions& options = FileBrowserOptions());
-#endif
+   #endif
+
+   #ifdef DGL_USE_WEB_VIEW
+   /**
+      Create a new web view.
+
+      The web view will be added on top of this window.
+      This means it will draw on top of whatever is below it,
+      something to take into consideration if mixing regular widgets with web views.
+
+      Provided metrics in @p options must have scale factor pre-applied.
+
+      @p url:     The URL to open, assumed to be in encoded form (e.g spaces converted to %20)
+      @p options: Extra options, optional
+    */
+    bool createWebView(const char* url, const DGL_NAMESPACE::WebViewOptions& options = WebViewOptions());
+
+   /**
+      Evaluate/run JavaScript on the web view.
+    */
+    void evaluateJS(const char* js);
+   #endif
 
    /**
       Request repaint of this window, for the entire area.
@@ -450,6 +479,7 @@ public:
     */
     void setTransientParent(uintptr_t transientParentWindowHandle);
 
+   #if DGL_ALLOW_DEPRECATED_METHODS
    /** DEPRECATED Use isIgnoringKeyRepeat(). */
     DISTRHO_DEPRECATED_BY("isIgnoringKeyRepeat()")
     inline bool getIgnoringKeyRepeat() const noexcept { return isIgnoringKeyRepeat(); }
@@ -461,6 +491,7 @@ public:
    /** DEPRECATED Use runAsModal(bool). */
     DISTRHO_DEPRECATED_BY("runAsModal(bool)")
     inline void exec(bool blockWait = false) { runAsModal(blockWait); }
+   #endif
 
 protected:
    /**
@@ -499,12 +530,11 @@ protected:
     */
     virtual void onFocus(bool focus, CrossingMode mode);
 
-   /**
-      A function called when the window is resized.
-      If there is a top-level widget associated with this window, its size will be set right after this function.
-      The default implementation sets up drawing context where necessary.
-    */
+   #if DGL_ALLOW_DEPRECATED_METHODS
+   /** DEPRECATED DO NOT USE */
+    DISTRHO_DEPRECATED
     virtual void onReshape(uint width, uint height);
+   #endif
 
    /**
       A function called when scale factor requested for this window changes.
@@ -513,7 +543,7 @@ protected:
     */
     virtual void onScaleFactorChanged(double scaleFactor);
 
-#ifndef DGL_FILE_BROWSER_DISABLED
+  #ifdef DGL_USE_FILE_BROWSER
    /**
       A function called when a path is selected by the user, as triggered by openFileBrowser().
       This action happens after the user confirms the action, so the file browser dialog will be closed at this point.
@@ -521,10 +551,12 @@ protected:
     */
     virtual void onFileSelected(const char* filename);
 
+   #if DGL_ALLOW_DEPRECATED_METHODS
    /** DEPRECATED Use onFileSelected(). */
     DISTRHO_DEPRECATED_BY("onFileSelected(const char*)")
     inline virtual void fileBrowserSelected(const char* filename) { return onFileSelected(filename); }
-#endif
+   #endif
+  #endif
 
 private:
     PrivateData* const pData;
@@ -541,7 +573,8 @@ private:
                     uint height,
                     double scaleFactor,
                     bool resizable,
-                    bool isVST3,
+                    bool usesScheduledRepaints,
+                    bool usesSizeRequest,
                     bool doPostInit);
 
     DISTRHO_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(Window)

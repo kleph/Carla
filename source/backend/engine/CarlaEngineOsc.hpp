@@ -1,19 +1,5 @@
-/*
- * Carla Plugin Host
- * Copyright (C) 2011-2020 Filipe Coelho <falktx@falktx.com>
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License as
- * published by the Free Software Foundation; either version 2 of
- * the License, or any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- *
- * For a full copy of the GNU General Public License see the doc/GPL.txt file.
- */
+// SPDX-FileCopyrightText: 2011-2025 Filipe Coelho <falktx@falktx.com>
+// SPDX-License-Identifier: GPL-2.0-or-later
 
 #ifndef CARLA_ENGINE_OSC_HPP_INCLUDED
 #define CARLA_ENGINE_OSC_HPP_INCLUDED
@@ -23,10 +9,11 @@
 #ifdef HAVE_LIBLO
 
 #include "CarlaBackend.h"
+#include "CarlaPlugin.hpp"
 #include "CarlaJuceUtils.hpp"
-#include "CarlaPluginPtr.hpp"
 #include "CarlaOscUtils.hpp"
-#include "CarlaString.hpp"
+
+#include "extra/String.hpp"
 
 #define CARLA_ENGINE_OSC_HANDLE_ARGS const CarlaPluginPtr& plugin, \
   const int argc, const lo_arg* const* const argv, const char* const types
@@ -70,12 +57,12 @@ public:
 
     // -------------------------------------------------------------------
 
-    const CarlaString& getServerPathTCP() const noexcept
+    const String& getServerPathTCP() const noexcept
     {
         return fServerPathTCP;
     }
 
-    const CarlaString& getServerPathUDP() const noexcept
+    const String& getServerPathUDP() const noexcept
     {
         return fServerPathUDP;
     }
@@ -127,11 +114,11 @@ private:
     CarlaOscData fControlDataTCP;
     CarlaOscData fControlDataUDP;
 
-    CarlaString  fName;
-    CarlaString  fServerPathTCP;
-    CarlaString  fServerPathUDP;
-    lo_server    fServerTCP;
-    lo_server    fServerUDP;
+    String    fName;
+    String    fServerPathTCP;
+    String    fServerPathUDP;
+    lo_server fServerTCP;
+    lo_server fServerUDP;
 
     // -------------------------------------------------------------------
 

@@ -22,13 +22,16 @@
 // --------------------------------------------------------------------------------------------------------------------
 // Fix OpenGL includes for Windows, based on glfw code (part 1)
 
-#undef DGL_CALLBACK_DEFINED
 #undef DGL_WINGDIAPI_DEFINED
 
 #ifdef DISTRHO_OS_WINDOWS
 
+#ifndef WINAPI
+# define WINAPI __stdcall
+#endif
+
 #ifndef APIENTRY
-# define APIENTRY __stdcall
+# define APIENTRY WINAPI
 #endif // APIENTRY
 
 /* We need WINGDIAPI defined */
@@ -43,20 +46,6 @@
 # define DGL_WINGDIAPI_DEFINED
 #endif // WINGDIAPI
 
-/* Some <GL/glu.h> files also need CALLBACK defined */
-#ifndef CALLBACK
-# if defined(_MSC_VER)
-#  if (defined(_M_MRX000) || defined(_M_IX86) || defined(_M_ALPHA) || defined(_M_PPC)) && !defined(MIDL_PASS)
-#   define CALLBACK __stdcall
-#  else
-#   define CALLBACK
-#  endif
-# else
-#  define CALLBACK __stdcall
-# endif
-# define DGL_CALLBACK_DEFINED
-#endif // CALLBACK
-
 #endif // DISTRHO_OS_WINDOWS
 
 // --------------------------------------------------------------------------------------------------------------------
@@ -64,6 +53,12 @@
 
 #ifdef DISTRHO_OS_MAC
 # ifdef DGL_USE_OPENGL3
+// NOTE GLES with macOS is not supported
+#  ifdef DGL_USE_GLES
+#   undef DGL_USE_GLES
+#   undef DGL_USE_GLES2
+#   undef DGL_USE_GLES3
+#  endif
 #  include <OpenGL/gl3.h>
 #  include <OpenGL/gl3ext.h>
 # else
@@ -96,11 +91,6 @@
 
 // --------------------------------------------------------------------------------------------------------------------
 // Fix OpenGL includes for Windows, based on glfw code (part 2)
-
-#ifdef DGL_CALLBACK_DEFINED
-# undef CALLBACK
-# undef DGL_CALLBACK_DEFINED
-#endif
 
 #ifdef DGL_WINGDIAPI_DEFINED
 # undef WINGDIAPI

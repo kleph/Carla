@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2011-2024 Filipe Coelho <falktx@falktx.com>
+// SPDX-FileCopyrightText: 2011-2025 Filipe Coelho <falktx@falktx.com>
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 // testing macros
@@ -11,12 +11,13 @@
 #include "CarlaLv2Utils.hpp"
 
 #include "CarlaBackendUtils.hpp"
-#include "CarlaBase64Utils.hpp"
 #include "CarlaEngineUtils.hpp"
 #include "CarlaPipeUtils.hpp"
 #include "CarlaPluginUI.hpp"
 #include "CarlaScopeUtils.hpp"
 #include "Lv2AtomRingBuffer.hpp"
+
+#include "extra/Base64.hpp"
 
 #include "../modules/lilv/config/lilv_config.h"
 
@@ -545,7 +546,7 @@ public:
     {
         char sampleRateStr[32];
         {
-            const CarlaScopedLocale csl;
+            const ScopedSafeLocale ssl;
             std::snprintf(sampleRateStr, 31, "%.12g", kEngine->getSampleRate());
         }
         sampleRateStr[31] = '\0';
@@ -582,10 +583,10 @@ private:
     CarlaEngine*    const kEngine;
     CarlaPluginLV2* const kPlugin;
 
-    CarlaString fFilename;
-    CarlaString fPluginURI;
-    CarlaString fUiURI;
-    UiState     fUiState;
+    String fFilename;
+    String fPluginURI;
+    String fUiURI;
+    UiState fUiState;
 
     CARLA_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(CarlaPipeServerLV2)
 };
@@ -1476,7 +1477,7 @@ public:
 
     void setWindowTitle(const char* const title) noexcept
     {
-        CarlaString uiTitle;
+        String uiTitle;
 
         if (title != nullptr)
         {
@@ -1489,7 +1490,7 @@ public:
         }
 
         std::free(const_cast<char*>(fLv2Options.windowTitle));
-        fLv2Options.windowTitle = uiTitle.releaseBufferPointer();
+        fLv2Options.windowTitle = uiTitle.getAndReleaseBuffer();
 
         fLv2Options.opts[CarlaPluginLV2Options::WindowTitle].size  = (uint32_t)std::strlen(fLv2Options.windowTitle);
         fLv2Options.opts[CarlaPluginLV2Options::WindowTitle].value = fLv2Options.windowTitle;
@@ -1651,7 +1652,8 @@ public:
                 if (parameterId == UINT32_MAX)
                     break;
 
-                std::vector<uint8_t> chunk(carla_getChunkFromBase64String(value));
+                std::vector<uint8_t> chunk;
+                d_getChunkFromBase64String_impl(chunk, value);
                 CARLA_SAFE_ASSERT_RETURN(chunk.size() > 0,);
 
 #ifdef CARLA_PROPER_CPP11_SUPPORT
@@ -1843,7 +1845,7 @@ public:
                     tmpBuf[0xfe] = '\0';
 
                     const CarlaMutexLocker cml(fPipeServer.getPipeLock());
-                    const CarlaScopedLocale csl;
+                    const ScopedSafeLocale ssl;
 
                     // write URI mappings
                     uint32_t u = 0;
@@ -1938,11 +1940,6 @@ public:
 
                     fPipeServer.syncMessages();
                 }
-
-#ifndef BUILD_BRIDGE
-                if (fUI.rdfDescriptor->Type == LV2_UI_MOD)
-                    pData->tryTransient();
-#endif
             }
             else
             {
@@ -2547,7 +2544,7 @@ public:
         }
 
         const uint portNameSize(pData->engine->getMaxPortNameSize());
-        CarlaString portName;
+        String portName;
         uint32_t iCtrl = 0;
 
         for (uint32_t i=0, iAudioIn=0, iAudioOut=0, iCvIn=0, iCvOut=0, iEvIn=0, iEvOut=0; i < portCount; ++i)
@@ -3318,7 +3315,18 @@ public:
                 case LV2_UI_OLD_EXTERNAL:
                     break;
                 default:
-                    pData->hints |= PLUGIN_HAS_CUSTOM_EMBED_UI;
+                    pData->hints |= PLUGIN_HAS_CUSTOM_EMBED_UI|PLUGIN_HAS_CUSTOM_RESIZABLE_UI;
+                    for (uint32_t i = 0; i < fUI.rdfDescriptor->ExtensionCount; ++i)
+                    {
+                        const char* const extension = fUI.rdfDescriptor->Extensions[i];
+                        CARLA_SAFE_ASSERT_CONTINUE(extension != nullptr);
+
+                        if (std::strcmp(extension, LV2_UI__noUserResize) == 0)
+                        {
+                            pData->hints &= ~PLUGIN_HAS_CUSTOM_RESIZABLE_UI;
+                            break;
+                        }
+                    }
                     break;
                 }
             }
@@ -5364,7 +5372,7 @@ public:
 
     const char* getUiBridgeBinary(const LV2_Property type) const
     {
-        CarlaString bridgeBinary(pData->engine->getOptions().binaryDir);
+        String bridgeBinary(pData->engine->getOptions().binaryDir);
 
         if (bridgeBinary.isEmpty())
             return nullptr;
@@ -5392,9 +5400,6 @@ public:
         case LV2_UI_X11:
             bridgeBinary += CARLA_OS_SEP_STR "carla-bridge-lv2-x11";
             break;
-        case LV2_UI_MOD:
-            bridgeBinary += CARLA_OS_SEP_STR "carla-bridge-lv2-modgui";
-            break;
 #if 0
         case LV2_UI_EXTERNAL:
         case LV2_UI_OLD_EXTERNAL:
@@ -5412,7 +5417,7 @@ public:
         if (! File(bridgeBinary.buffer()).existsAsFile())
             return nullptr;
 
-        return bridgeBinary.dupSafe();
+        return carla_strdup_safe(bridgeBinary);
     }
 
     // -------------------------------------------------------------------
@@ -5839,7 +5844,7 @@ public:
             return nullptr;
         }
 
-        CarlaString basedir(pData->engine->getName());
+        String basedir(pData->engine->getName());
 
         if (temporary)
             basedir += ".tmp";
@@ -5902,7 +5907,7 @@ public:
             return File();
         }
 
-        CarlaString basedir(pData->engine->getName());
+        String basedir(pData->engine->getName());
 
         if (temporary)
             basedir += ".tmp";
@@ -5974,7 +5979,7 @@ public:
                 if (type == kUridAtomString || type == kUridAtomPath)
                     cData.value = carla_strdup((const char*)value);
                 else
-                    cData.value = CarlaString::asBase64(value, size).dup();
+                    cData.value = carla_strdup(String::asBase64(value, size));
 
                 return LV2_STATE_SUCCESS;
             }
@@ -5988,7 +5993,7 @@ public:
         if (type == kUridAtomString || type == kUridAtomPath)
             newData.value = carla_strdup((const char*)value);
         else
-            newData.value = CarlaString::asBase64(value, size).dup();
+            newData.value = carla_strdup(String::asBase64(value, size));
 
         pData->custom.append(newData);
 
@@ -6047,7 +6052,8 @@ public:
             fLastStateChunk = nullptr;
         }
 
-        std::vector<uint8_t> chunk(carla_getChunkFromBase64String(stringData));
+        std::vector<uint8_t> chunk;
+        d_getChunkFromBase64String_impl(chunk, stringData);
         CARLA_SAFE_ASSERT_RETURN(chunk.size() > 0, nullptr);
 
         fLastStateChunk = std::malloc(chunk.size());
@@ -6662,7 +6668,7 @@ public:
             }
             else if (feature.Required && ! is_lv2_feature_supported(feature.URI))
             {
-                CarlaString msg("Plugin wants a feature that is not supported:\n");
+                String msg("Plugin wants a feature that is not supported:\n");
                 msg += feature.URI;
 
                 canContinue = false;
@@ -6987,8 +6993,8 @@ public:
         // ---------------------------------------------------------------
         // find the most appropriate ui
 
-        int eQt4, eQt5, eGtk2, eGtk3, eCocoa, eWindows, eX11, eMod, iCocoa, iWindows, iX11, iExt, iFinal;
-        eQt4 = eQt5 = eGtk2 = eGtk3 = eCocoa = eWindows = eX11 = eMod = iCocoa = iWindows = iX11 = iExt = iFinal = -1;
+        int eQt4, eQt5, eGtk2, eGtk3, eCocoa, eWindows, eX11, iCocoa, iWindows, iX11, iExt, iFinal;
+        eQt4 = eQt5 = eGtk2 = eGtk3 = eCocoa = eWindows = eX11 = iCocoa = iWindows = iX11 = iExt = iFinal = -1;
 
 #if defined(LV2_UIS_ONLY_BRIDGES)
         const bool preferUiBridges = true;
@@ -7045,9 +7051,6 @@ public:
             case LV2_UI_EXTERNAL:
             case LV2_UI_OLD_EXTERNAL:
                 iExt = ii;
-                break;
-            case LV2_UI_MOD:
-                eMod = ii;
                 break;
             default:
                 break;
@@ -7115,14 +7118,8 @@ public:
 
             if (iFinal < 0)
             {
-                if (eMod < 0)
-                {
-                    carla_stderr("Failed to find an appropriate LV2 UI for this plugin");
-                    return;
-                }
-
-                // use MODGUI as last resort
-                iFinal = eMod;
+                carla_stderr("Failed to find an appropriate LV2 UI for this plugin");
+                return;
             }
         }
 
@@ -7176,8 +7173,7 @@ public:
              iFinal == eGtk3    ||
              iFinal == eCocoa   ||
              iFinal == eWindows ||
-             iFinal == eX11     ||
-             iFinal == eMod)
+             iFinal == eX11)
 #ifdef BUILD_BRIDGE
             && ! hasShowInterface
 #endif
@@ -7190,7 +7186,7 @@ public:
             {
                 carla_stdout("Will use UI-Bridge for '%s', binary: \"%s\"", pData->name, bridgeBinary);
 
-                CarlaString uiTitle;
+                String uiTitle;
 
                 if (pData->uiTitle.isNotEmpty())
                 {
@@ -7202,7 +7198,7 @@ public:
                     uiTitle += " (GUI)";
                 }
 
-                fLv2Options.windowTitle = uiTitle.releaseBufferPointer();
+                fLv2Options.windowTitle = uiTitle.getAndReleaseBuffer();
 
                 fUI.type = UI::TYPE_BRIDGE;
                 fPipeServer.setData(bridgeBinary, fRdfDescriptor->URI, fUI.rdfDescriptor->URI);
@@ -7211,7 +7207,7 @@ public:
                 return;
             }
 
-            if (iFinal == eQt4 || iFinal == eQt5 || iFinal == eGtk2 || iFinal == eGtk3 || iFinal == eMod)
+            if (iFinal == eQt4 || iFinal == eQt5 || iFinal == eGtk2 || iFinal == eGtk3)
             {
                 carla_stderr2("Failed to find UI bridge binary for '%s', cannot use UI", pData->name);
                 fUI.rdfDescriptor = nullptr;
@@ -7336,7 +7332,7 @@ public:
         // initialize ui data
 
         {
-            CarlaString uiTitle;
+            String uiTitle;
 
             if (pData->uiTitle.isNotEmpty())
             {
@@ -7348,7 +7344,7 @@ public:
                 uiTitle += " (GUI)";
             }
 
-            fLv2Options.windowTitle = uiTitle.releaseBufferPointer();
+            fLv2Options.windowTitle = uiTitle.getAndReleaseBuffer();
         }
 
         fLv2Options.opts[CarlaPluginLV2Options::WindowTitle].size  = (uint32_t)std::strlen(fLv2Options.windowTitle);
@@ -7572,7 +7568,7 @@ private:
     EngineTimeInfo fLastTimeInfo;
 
     // if plugin provides path parameter, use it as fake "gui"
-    CarlaString fFilePathURI;
+    String fFilePathURI;
 
     struct Extensions {
         const LV2_Options_Interface* options;
@@ -8344,7 +8340,8 @@ bool CarlaPipeServerLV2::msgReceived(const char* const msg) noexcept
         CARLA_SAFE_ASSERT_RETURN(readNextLineAsUInt(base64Size), true);
         CARLA_SAFE_ASSERT_RETURN(readNextLineAsString(base64atom, false, base64Size), true);
 
-        std::vector<uint8_t> chunk(carla_getChunkFromBase64String(base64atom));
+        std::vector<uint8_t> chunk;
+        d_getChunkFromBase64String_impl(chunk, base64atom);
         CARLA_SAFE_ASSERT_UINT2_RETURN(chunk.size() >= sizeof(LV2_Atom), chunk.size(), sizeof(LV2_Atom), true);
 
 #ifdef CARLA_PROPER_CPP11_SUPPORT
@@ -8442,7 +8439,7 @@ CarlaPluginPtr CarlaPlugin::newLV2(const Initializer& init)
    #ifndef CARLA_OS_WASM
     if (needsArchBridge != nullptr)
     {
-        CarlaString bridgeBinary(init.engine->getOptions().binaryDir);
+        String bridgeBinary(init.engine->getOptions().binaryDir);
         bridgeBinary += CARLA_OS_SEP_STR "carla-bridge-native";
 
         return CarlaPlugin::newBridge(init, BINARY_NATIVE, PLUGIN_LV2, needsArchBridge, bridgeBinary);

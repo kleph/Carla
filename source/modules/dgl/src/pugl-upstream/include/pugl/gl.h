@@ -1,10 +1,11 @@
-// Copyright 2012-2020 David Robillard <d@drobilla.net>
+// Copyright 2012-2023 David Robillard <d@drobilla.net>
 // SPDX-License-Identifier: ISC
 
 #ifndef PUGL_GL_H
 #define PUGL_GL_H
 
-#include "pugl/pugl.h"
+#include <pugl/attributes.h>
+#include <pugl/pugl.h>
 
 // IWYU pragma: begin_exports
 
@@ -22,23 +23,12 @@
 #  endif
 #endif
 
-#ifndef PUGL_NO_INCLUDE_GLU_H
-#  ifdef __APPLE__
-#    include <OpenGL/glu.h>
-#  else
-#    ifdef _WIN32
-#      include <windows.h>
-#    endif
-#    include <GL/glu.h>
-#  endif
-#endif
-
 // IWYU pragma: end_exports
 
 PUGL_BEGIN_DECLS
 
 /**
-   @defgroup gl OpenGL
+   @defgroup pugl_gl OpenGL
    OpenGL graphics support.
    @ingroup pugl
    @{
@@ -52,8 +42,7 @@ typedef void (*PuglGlFunc)(void);
 /**
    Return the address of an OpenGL extension function.
 */
-PUGL_API
-PuglGlFunc
+PUGL_API PuglGlFunc
 puglGetProcAddress(const char* name);
 
 /**
@@ -63,8 +52,7 @@ puglGetProcAddress(const char* name);
    doing things like loading textures.  Note that this must not be used for
    drawing, which may only be done while processing an expose event.
 */
-PUGL_API
-PuglStatus
+PUGL_API PuglStatus
 puglEnterContext(PuglView* view);
 
 /**
@@ -72,8 +60,7 @@ puglEnterContext(PuglView* view);
 
    This must only be called after puglEnterContext().
 */
-PUGL_API
-PuglStatus
+PUGL_API PuglStatus
 puglLeaveContext(PuglView* view);
 
 /**
@@ -81,8 +68,7 @@ puglLeaveContext(PuglView* view);
 
    Pass the returned value to puglSetBackend() to draw to a view with OpenGL.
 */
-PUGL_CONST_API
-const PuglBackend*
+PUGL_CONST_API const PuglBackend*
 puglGlBackend(void);
 
 PUGL_END_DECLS

@@ -1,4 +1,4 @@
-﻿// SPDX-FileCopyrightText: 2011-2024 Filipe Coelho <falktx@falktx.com>
+﻿// SPDX-FileCopyrightText: 2011-2025 Filipe Coelho <falktx@falktx.com>
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #ifndef BUILD_BRIDGE
@@ -16,14 +16,15 @@
 #include "CarlaEngineInit.hpp"
 
 #include "CarlaBackendUtils.hpp"
-#include "CarlaBase64Utils.hpp"
 #include "CarlaBridgeUtils.hpp"
-#include "CarlaTimeUtils.hpp"
 #include "CarlaMIDI.h"
 
 #ifdef __SSE2_MATH__
 # include <xmmintrin.h>
 #endif
+
+#include "extra/Base64.hpp"
+#include "extra/Time.hpp"
 
 #include "water/files/File.h"
 #include "water/misc/Time.h"
@@ -33,7 +34,6 @@
 
 using water::File;
 using water::MemoryBlock;
-using water::String;
 
 CARLA_BACKEND_START_NAMESPACE
 
@@ -368,7 +368,7 @@ public:
         if (wasFirstIdle)
         {
             fFirstIdle = false;
-            fLastPingTime = carla_gettime_ms();
+            fLastPingTime = d_gettime_ms();
 
             char bufStr[STR_MAX+1];
             carla_zeroChars(bufStr, STR_MAX+1);
@@ -643,7 +643,7 @@ public:
             fShmNonRtServerControl.waitIfDataIsReachingLimit();
 
             carla_stdout("Carla Bridge Ready!");
-            fLastPingTime = carla_gettime_ms();
+            fLastPingTime = d_gettime_ms();
         }
 
         // send parameter outputs
@@ -672,7 +672,7 @@ public:
             handleNonRtData();
         } CARLA_SAFE_EXCEPTION("handleNonRtData");
 
-        if (fLastPingTime != UINT32_MAX && carla_gettime_ms() > fLastPingTime + 30000 && ! wasFirstIdle)
+        if (fLastPingTime != UINT32_MAX && d_gettime_ms() > fLastPingTime + 30000 && ! wasFirstIdle)
         {
             carla_stderr("Did not receive ping message from server for 30 secs, closing...");
             signalThreadShouldExit();
@@ -811,7 +811,7 @@ public:
 
             if (opcode != kPluginBridgeNonRtClientNull &&
                 opcode != kPluginBridgeNonRtClientPingOnOff && fLastPingTime != UINT32_MAX)
-                fLastPingTime = carla_gettime_ms();
+                fLastPingTime = d_gettime_ms();
 
             switch (opcode)
             {
@@ -832,7 +832,7 @@ public:
             }   break;
 
             case kPluginBridgeNonRtClientPingOnOff:
-                fLastPingTime = fShmNonRtClientControl.readBool() ? carla_gettime_ms() : UINT32_MAX;
+                fLastPingTime = fShmNonRtClientControl.readBool() ? d_gettime_ms() : UINT32_MAX;
                 break;
 
             case kPluginBridgeNonRtClientActivate:
@@ -925,7 +925,7 @@ public:
                         CARLA_SAFE_ASSERT_BREAK(bigValueFilePathTry.text[0] != '\0');
                         if (! plugin->isEnabled()) break;
 
-                        String bigValueFilePath(bigValueFilePathTry.text);
+                        water::String bigValueFilePath(bigValueFilePathTry.text);
 
 #ifdef CARLA_OS_WIN
                         // check if running under Wine
@@ -966,7 +966,7 @@ public:
                 CARLA_SAFE_ASSERT_BREAK(chunkFilePathTry.text[0] != '\0');
                 if (! plugin->isEnabled()) break;
 
-                String chunkFilePath(chunkFilePathTry.text);
+                water::String chunkFilePath(chunkFilePathTry.text);
 
 #ifdef CARLA_OS_WIN
                 // check if running under Wine
@@ -977,11 +977,12 @@ public:
                 File chunkFile(chunkFilePath.toRawUTF8());
                 CARLA_SAFE_ASSERT_BREAK(chunkFile.existsAsFile());
 
-                String chunkDataBase64(chunkFile.loadFileAsString());
+                water::String chunkDataBase64(chunkFile.loadFileAsString());
                 chunkFile.deleteFile();
                 CARLA_SAFE_ASSERT_BREAK(chunkDataBase64.isNotEmpty());
 
-                std::vector<uint8_t> chunk(carla_getChunkFromBase64String(chunkDataBase64.toRawUTF8()));
+                std::vector<uint8_t> chunk;
+                d_getChunkFromBase64String_impl(chunk, chunkDataBase64.toRawUTF8());
 
 #ifdef CARLA_PROPER_CPP11_SUPPORT
                 plugin->setChunkData(chunk.data(), chunk.size());
@@ -1103,7 +1104,7 @@ public:
                         {
                             if (valueLen > maxLocalValueLen)
                             {
-                                String filePath(File::getSpecialLocation(File::tempDirectory).getFullPathName());
+                                water::String filePath(File::getSpecialLocation(File::tempDirectory).getFullPathName());
 
                                 filePath += CARLA_OS_SEP_STR ".CarlaCustomData_";
                                 filePath += fShmAudioPool.getFilenameSuffix();
@@ -1138,10 +1139,10 @@ public:
                     {
                         CARLA_SAFE_ASSERT_BREAK(data != nullptr);
 
-                        CarlaString dataBase64 = CarlaString::asBase64(data, dataSize);
+                        String dataBase64 = String::asBase64(data, dataSize);
                         CARLA_SAFE_ASSERT_BREAK(dataBase64.length() > 0);
 
-                        String filePath(File::getSpecialLocation(File::tempDirectory).getFullPathName());
+                        water::String filePath(File::getSpecialLocation(File::tempDirectory).getFullPathName());
 
                         filePath += CARLA_OS_SEP_STR ".CarlaChunk_";
                         filePath += fShmAudioPool.getFilenameSuffix();
@@ -1664,10 +1665,10 @@ private:
     BridgeNonRtClientControl fShmNonRtClientControl;
     BridgeNonRtServerControl fShmNonRtServerControl;
 
-    CarlaString fBaseNameAudioPool;
-    CarlaString fBaseNameRtClientControl;
-    CarlaString fBaseNameNonRtClientControl;
-    CarlaString fBaseNameNonRtServerControl;
+    String fBaseNameAudioPool;
+    String fBaseNameRtClientControl;
+    String fBaseNameNonRtClientControl;
+    String fBaseNameNonRtServerControl;
 
     bool fClosingDown;
     bool fIsOffline;

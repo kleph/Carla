@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2011-2024 Filipe Coelho <falktx@falktx.com>
+// SPDX-FileCopyrightText: 2011-2025 Filipe Coelho <falktx@falktx.com>
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "CarlaPluginInternal.hpp"
@@ -8,6 +8,7 @@
 # include "CarlaBackendUtils.hpp"
 # include "CarlaPluginUI.hpp"
 # include "CarlaMacUtils.hpp"
+# include "CarlaMathUtils.hpp"
 # include <AudioToolbox/AudioUnit.h>
 # include <Foundation/Foundation.h>
 #endif
@@ -248,7 +249,7 @@ public:
         bool needsCtrlIn, needsCtrlOut, hasMidiIn, hasMidiOut;
         needsCtrlIn = needsCtrlOut = hasMidiIn = hasMidiOut = false;
 
-        CarlaString portName;
+        String portName;
         const uint portNameSize = pData->engine->getMaxPortNameSize();
 
         UInt32 outDataSize;
@@ -400,7 +401,7 @@ public:
             if (audioIns > 1)
             {
                 portName += "input_";
-                portName += CarlaString(i + 1);
+                portName += String(i + 1);
             }
             else
                 portName += "input";
@@ -425,7 +426,7 @@ public:
             if (audioOuts > 1)
             {
                 portName += "output_";
-                portName += CarlaString(i + 1);
+                portName += String(i + 1);
             }
             else
                 portName += "output";
@@ -496,7 +497,7 @@ public:
                     if (min > max)
                         max = min;
 
-                    if (carla_isEqual(min, max))
+                    if (d_isEqual(min, max))
                     {
                         carla_stderr2("WARNING - Broken plugin parameter '%s': max == min", info.name);
                         max = min + 0.1f;
@@ -1037,9 +1038,9 @@ private:
     BundleLoader fBundleLoader;
     AudioComponentPlugInInterface* fInterface;
     AudioBufferList* fAudioBufferData;
-    CarlaString fName;
-    CarlaString fLabel;
-    CarlaString fMaker;
+    String fName;
+    String fLabel;
+    String fMaker;
 
     struct Functions {
         InitializeFn initialize;

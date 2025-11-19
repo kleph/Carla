@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2011-2024 Filipe Coelho <falktx@falktx.com>
+// SPDX-FileCopyrightText: 2011-2025 Filipe Coelho <falktx@falktx.com>
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "pluginlistdialog.hpp"
@@ -32,7 +32,7 @@
 #include "CarlaJuceUtils.hpp"
 #include "CarlaUtils.h"
 
-#include "CarlaString.hpp"
+#include "extra/ScopedPointer.hpp"
 
 #include <cstdlib>
 
@@ -382,31 +382,6 @@ int fontMetricsHorizontalAdvance(const QFontMetrics& fontMetrics, const QString&
 // --------------------------------------------------------------------------------------------------------------------
 // Qt-compatible plugin info
 
-// base details, nicely packed and POD-only so we can directly use as binary
-struct PluginInfoHeader {
-    uint16_t build;
-    uint16_t type;
-    uint32_t hints;
-    uint64_t uniqueId;
-    uint16_t audioIns;
-    uint16_t audioOuts;
-    uint16_t cvIns;
-    uint16_t cvOuts;
-    uint16_t midiIns;
-    uint16_t midiOuts;
-    uint16_t parameterIns;
-    uint16_t parameterOuts;
-};
-
-// full details, now with non-POD types
-struct PluginInfo : PluginInfoHeader {
-    QString category;
-    QString filename;
-    QString name;
-    QString label;
-    QString maker;
-};
-
 // convert PluginInfo to Qt types
 static QVariant asByteArray(const PluginInfo& info)
 {
@@ -672,7 +647,7 @@ struct PluginListDialog::PrivateData {
         bool useWineBridges = false;
         CarlaPluginDiscoveryHandle handle = nullptr;
         QCarlaString tool;
-        CarlaScopedPointer<PluginRefreshDialog> dialog;
+        ScopedPointer<PluginRefreshDialog> dialog;
         Discovery()
         {
             restart();
@@ -908,7 +883,7 @@ PluginListDialog::PluginListDialog(QWidget* const parent, const HostSettings* co
 
 #if 0
     // NOTE: We Assume win32 carla build will not run win64 plugins
-    if (WINDOWS and not kIs64bit) or not host.showPluginBridges:
+    if (CARLA_OS_WIN and not CARLA_OS_64BIT) or not host.showPluginBridges:
         ui.ch_native.setChecked(True)
         ui.ch_native.setEnabled(False)
         ui.ch_native.setVisible(True)
@@ -2088,80 +2063,5 @@ void PluginListDialog::saveSettings()
 
     settings.setValue("PluginListDialog/Favorites", asVariant(p->plugins.favorites));
 }
-
-// --------------------------------------------------------------------------------------------------------------------
-
-PluginListDialog*
-carla_frontend_createPluginListDialog(void* const parent, const HostSettings* const hostSettings)
-{
-    return new PluginListDialog(reinterpret_cast<QWidget*>(parent), hostSettings);
-}
-
-void
-carla_frontend_destroyPluginListDialog(PluginListDialog* const dialog)
-{
-    dialog->close();
-    delete dialog;
-}
-
-void
-carla_frontend_setPluginListDialogPath(PluginListDialog* const dialog, const int ptype, const char* const path)
-{
-    dialog->setPluginPath(static_cast<PluginType>(ptype), path);
-}
-
-const PluginListDialogResults*
-carla_frontend_execPluginListDialog(PluginListDialog* const dialog)
-{
-    if (dialog->exec())
-    {
-        static PluginListDialogResults ret;
-        static CarlaString category;
-        static CarlaString filename;
-        static CarlaString name;
-        static CarlaString label;
-        static CarlaString maker;
-
-        const PluginInfo& plugin(dialog->getSelectedPluginInfo());
-
-        category = plugin.category.toUtf8();
-        filename = plugin.filename.toUtf8();
-        name = plugin.name.toUtf8();
-        label = plugin.label.toUtf8();
-        maker = plugin.maker.toUtf8();
-
-        ret.build = plugin.build;
-        ret.type = plugin.type;
-        ret.hints = plugin.hints;
-        ret.category = category;
-        ret.filename = filename;
-        ret.name = name;
-        ret.label = label;
-        ret.maker = maker;
-        ret.uniqueId = plugin.uniqueId;
-        ret.audioIns = plugin.audioIns;
-        ret.audioOuts = plugin.audioOuts;
-        ret.cvIns = plugin.cvIns;
-        ret.cvOuts = plugin.cvOuts;
-        ret.midiIns = plugin.midiIns;
-        ret.midiOuts = plugin.midiOuts;
-        ret.parameterIns = plugin.parameterIns;
-        ret.parameterOuts = plugin.parameterOuts;
-
-        return &ret;
-    }
-
-    return nullptr;
-}
-
-// --------------------------------------------------------------------------------------------------------------------
-
-// const PluginListDialogResults*
-// carla_frontend_createAndExecPluginListDialog(void* const parent, const HostSettings* const hostSettings)
-// {
-//     PluginListDialog gui(reinterpret_cast<QWidget*>(parent), hostSettings);
-//
-//     return carla_frontend_execPluginListDialog(&gui);
-// }
 
 // --------------------------------------------------------------------------------------------------------------------

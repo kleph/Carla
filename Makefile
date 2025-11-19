@@ -214,6 +214,11 @@ plugin-wine:
 else
 plugin-wine: $(MODULEDIR)/dgl.wine.a
 	@$(MAKE) -C source/plugin wine
+ifeq ($(CPU_X86_64),true)
+	@$(MAKE) plugin-wine AR=x86_64-w64-mingw32-ar CC=x86_64-w64-mingw32-gcc CXX=x86_64-w64-mingw32-g++
+else ifeq ($(CPU_I386),true)
+	@$(MAKE) plugin-wine AR=i686-w64-mingw32-ar CC=i686-w64-mingw32-gcc CXX=i686-w64-mingw32-g++
+endif
 endif
 
 rest: libs
@@ -427,8 +432,6 @@ ifeq ($(HAVE_FRONTEND),true)
 	install -d $(DESTDIR)$(DATADIR)/mime/packages
 	install -d $(DESTDIR)$(DATADIR)/carla/resources/translations
 	install -d $(DESTDIR)$(DATADIR)/carla/common
-	install -d $(DESTDIR)$(DATADIR)/carla/dialogs
-	install -d $(DESTDIR)$(DATADIR)/carla/modgui
 	install -d $(DESTDIR)$(DATADIR)/carla/patchcanvas
 	install -d $(DESTDIR)$(DATADIR)/carla/utils
 	install -d $(DESTDIR)$(DATADIR)/carla/widgets
@@ -511,7 +514,6 @@ endif
 		source/backend/CarlaUtils.h \
 		source/backend/CarlaEngine.hpp \
 		source/backend/CarlaPlugin.hpp \
-		source/backend/CarlaPluginPtr.hpp \
 		$(DESTDIR)$(INCLUDEDIR)/carla
 
 	install -m 644 \
@@ -522,25 +524,6 @@ endif
 		$(DESTDIR)$(INCLUDEDIR)/carla/includes
 
 	install -m 644 \
-		source/utils/CarlaBackendUtils.hpp \
-		source/utils/CarlaBase64Utils.hpp \
-		source/utils/CarlaBinaryUtils.hpp \
-		source/utils/CarlaBridgeDefines.hpp \
-		source/utils/CarlaBridgeUtils.hpp \
-		source/utils/CarlaMacUtils.hpp \
-		source/utils/CarlaMathUtils.hpp \
-		source/utils/CarlaMemUtils.hpp \
-		source/utils/CarlaMutex.hpp \
-		source/utils/CarlaRingBuffer.hpp \
-		source/utils/CarlaProcessUtils.hpp \
-		source/utils/CarlaRunner.hpp \
-		source/utils/CarlaScopeUtils.hpp \
-		source/utils/CarlaSemUtils.hpp \
-		source/utils/CarlaSha1Utils.hpp \
-		source/utils/CarlaShmUtils.hpp \
-		source/utils/CarlaString.hpp \
-		source/utils/CarlaThread.hpp \
-		source/utils/CarlaTimeUtils.hpp \
 		source/utils/CarlaUtils.hpp \
 		$(DESTDIR)$(INCLUDEDIR)/carla/utils
 
@@ -582,14 +565,6 @@ ifeq ($(HAVE_LIBLO),true)
 		$(DESTDIR)$(BINDIR)/carla-control
 endif
 
-	# Install the real modgui bridge
-	install -m 755 \
-		data/carla-bridge-lv2-modgui \
-		$(DESTDIR)$(LIBDIR)/carla
-
-	sed $(SED_ARGS) 's?X-PREFIX-X?$(PREFIX)?' \
-		$(DESTDIR)$(LIBDIR)/carla/carla-bridge-lv2-modgui
-
 	# Install frontend
 	install -m 644 \
 		source/frontend/carla \
@@ -604,14 +579,6 @@ endif
 	install -m 644 \
 		source/frontend/common/*.py \
 		$(DESTDIR)$(DATADIR)/carla/common/
-
-	install -m 644 \
-		source/frontend/dialogs/*.py \
-		$(DESTDIR)$(DATADIR)/carla/dialogs/
-
-	install -m 644 \
-		source/frontend/modgui/*.py \
-		$(DESTDIR)$(DATADIR)/carla/modgui/
 
 	install -m 644 \
 		source/frontend/patchcanvas/*.py \
@@ -690,8 +657,6 @@ endif
 
 	# Install resources (re-use python files)
 	$(LINK) ../common                      $(DESTDIR)$(DATADIR)/carla/resources
-	$(LINK) ../dialogs                     $(DESTDIR)$(DATADIR)/carla/resources
-	$(LINK) ../modgui                      $(DESTDIR)$(DATADIR)/carla/resources
 	$(LINK) ../patchcanvas                 $(DESTDIR)$(DATADIR)/carla/resources
 	$(LINK) ../utils                       $(DESTDIR)$(DATADIR)/carla/resources
 	$(LINK) ../widgets                     $(DESTDIR)$(DATADIR)/carla/resources
@@ -798,16 +763,6 @@ ifeq ($(HAVE_FRONTEND),true)
 	# Link styles for vst plugin
 	rm -rf $(DESTDIR)$(LIBDIR)/vst/carla.vst/styles
 	$(LINK) ../../carla/styles $(DESTDIR)$(LIBDIR)/vst/carla.vst/styles
-endif
-endif
-
-	# -------------------------------------------------------------------------------------------------------------
-
-ifneq ($(HAVE_FRONTEND),true)
-	# Remove gui files for non-gui build
-	rm $(DESTDIR)$(LIBDIR)/carla/carla-bridge-lv2-modgui
-ifeq ($(CAN_GENERATE_LV2_TTL),true)
-	rm $(DESTDIR)$(LIBDIR)/lv2/carla.lv2/carla-bridge-lv2-modgui
 endif
 endif
 

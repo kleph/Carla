@@ -1,4 +1,4 @@
-﻿// SPDX-FileCopyrightText: 2011-2024 Filipe Coelho <falktx@falktx.com>
+﻿// SPDX-FileCopyrightText: 2011-2025 Filipe Coelho <falktx@falktx.com>
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #ifndef BUILD_BRIDGE
@@ -12,7 +12,6 @@
 #include "CarlaBackendUtils.hpp"
 #include "CarlaJuceUtils.hpp"
 #include "CarlaMainLoop.hpp"
-#include "CarlaTimeUtils.hpp"
 
 #include "CarlaMIDI.h"
 
@@ -38,6 +37,8 @@
 # include <X11/Xlib.h>
 #endif
 
+#include "extra/Sleep.hpp"
+
 #include "water/files/File.h"
 #include "water/misc/Time.h"
 
@@ -51,7 +52,6 @@ using CARLA_BACKEND_NAMESPACE::runMainLoopOnce;
 
 using water::CharPointer_UTF8;
 using water::File;
-using water::String;
 
 // -------------------------------------------------------------------------
 
@@ -112,7 +112,7 @@ static void initSignalHandler()
 // -------------------------------------------------------------------------
 
 static CarlaHostHandle gHostHandle;
-static CarlaString gProjectFilename;
+static String gProjectFilename;
 
 static void gIdle()
 {
@@ -230,9 +230,9 @@ public:
             gIdle();
            #if defined(CARLA_OS_MAC) || defined(CARLA_OS_WIN)
             // MacOS and Win32 have event-loops to run, so minimize sleep time
-            carla_msleep(1);
+            d_msleep(1);
            #else
-            carla_msleep(5);
+            d_msleep(5);
            #endif
             if (testing && timeToEnd - water::Time::currentTimeMillis() < 0)
                 break;
@@ -418,7 +418,7 @@ int main(int argc, char* argv[])
     // ---------------------------------------------------------------------
     // Set client name
 
-    CarlaString clientName;
+    String clientName;
 
     if (name != nullptr)
     {
@@ -430,7 +430,7 @@ int main(int argc, char* argv[])
         CARLA_SAFE_ASSERT_RETURN(label != nullptr && label[0] != '\0', 1);
 
         // LV2 URI is not usable as client name, create a usable name from URI
-        CarlaString label2(label);
+        String label2(label);
 
         // truncate until last valid char
         for (std::size_t i=label2.length()-1; i != 0; --i)
@@ -544,7 +544,7 @@ int main(int argc, char* argv[])
             {
                 if (sched_setscheduler(0, SCHED_RR|SCHED_RESET_ON_FORK, &sparam) < 0)
                 {
-                    CarlaString error(std::strerror(errno));
+                    String error(std::strerror(errno));
                     carla_stderr("Failed to set high priority, error %i: %s", errno, error.buffer());
                 }
             }

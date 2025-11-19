@@ -1,25 +1,14 @@
-/*
- * Carla Pipe Utilities
- * Copyright (C) 2013-2024 Filipe Coelho <falktx@falktx.com>
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License as
- * published by the Free Software Foundation; either version 2 of
- * the License, or any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- *
- * For a full copy of the GNU General Public License see the doc/GPL.txt file.
- */
+// SPDX-FileCopyrightText: 2011-2025 Filipe Coelho <falktx@falktx.com>
+// SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "CarlaPipeUtils.hpp"
 #include "CarlaProcessUtils.hpp"
-#include "CarlaString.hpp"
-#include "CarlaTimeUtils.hpp"
+#include "CarlaScopeUtils.hpp"
 #include "CarlaMIDI.h"
+
+#include "extra/Sleep.hpp"
+#include "extra/String.hpp"
+#include "extra/Time.hpp"
 
 // needed for atom-util
 #ifndef nullptr
@@ -109,7 +98,7 @@ bool waitForAsyncObject(const HANDLE object, const HANDLE process = INVALID_HAND
         }
 
         carla_stderr2("waitForAsyncObject loop end reached, error was: %u", dw2);
-        carla_msleep(5);
+        d_msleep(5);
     }
 
     carla_stderr2("waitForAsyncObject reached the end, this should not happen");
@@ -265,7 +254,7 @@ bool waitForClientConnect(const HANDLE pipe, const HANDLE event, const HANDLE pr
     carla_zeroStruct(ov);
     ov.hEvent = event;
 
-    const uint32_t timeoutEnd = carla_gettime_ms() + timeOutMilliseconds;
+    const uint32_t timeoutEnd = d_gettime_ms() + timeOutMilliseconds;
 
     for (;;)
     {
@@ -303,9 +292,9 @@ bool waitForClientConnect(const HANDLE pipe, const HANDLE event, const HANDLE pr
             return true;
 
         case ERROR_PIPE_LISTENING:
-            if (carla_gettime_ms() < timeoutEnd)
+            if (d_gettime_ms() < timeoutEnd)
             {
-                carla_msleep(5);
+                d_msleep(5);
                 continue;
             }
             carla_stderr2("ConnectNamedPipe listening timed out");
@@ -340,14 +329,14 @@ bool startProcess(const char* const argv[], pid_t& pidinst) noexcept
     case 0: { // child process
         execvp(argv[0], const_cast<char* const*>(argv));
 
-        CarlaString error(std::strerror(errno));
+        String error(std::strerror(errno));
         carla_stderr2("exec failed: %s", error.buffer());
 
         _exit(1); // this is not noexcept safe but doesn't matter anyway
     }   break;
 
     case -1: { // error
-        CarlaString error(std::strerror(errno));
+        String error(std::strerror(errno));
         carla_stderr2("vfork() failed: %s", error.buffer());
     }   break;
     }
@@ -368,7 +357,7 @@ bool waitForClientFirstMessage(const P& pipe, void* const ovRecv, void* const pr
 
     char c;
     ssize_t ret;
-    const uint32_t timeoutEnd = carla_gettime_ms() + timeOutMilliseconds;
+    const uint32_t timeoutEnd = d_gettime_ms() + timeOutMilliseconds;
 
 #ifdef CARLA_OS_WIN
     if (! waitForClientConnect(pipe, (HANDLE)ovRecv, (HANDLE)process, timeOutMilliseconds))
@@ -401,9 +390,9 @@ bool waitForClientFirstMessage(const P& pipe, void* const ovRecv, void* const pr
             if (errno == EAGAIN)
 #endif
             {
-                if (carla_gettime_ms() < timeoutEnd)
+                if (d_gettime_ms() < timeoutEnd)
                 {
-                    carla_msleep(5);
+                    d_msleep(5);
                     continue;
                 }
                 carla_stderr("waitForClientFirstMessage() - read timed out");
@@ -413,7 +402,7 @@ bool waitForClientFirstMessage(const P& pipe, void* const ovRecv, void* const pr
 #ifdef CARLA_OS_WIN
                 carla_stderr("waitForClientFirstMessage() - read failed");
 #else
-                CarlaString error(std::strerror(errno));
+                String error(std::strerror(errno));
                 carla_stderr("waitForClientFirstMessage() - read failed: %s", error.buffer());
 #endif
             }
@@ -439,7 +428,7 @@ bool waitForProcessToStop(const HANDLE process, const uint32_t timeOutMillisecon
     CARLA_SAFE_ASSERT_RETURN(process != INVALID_HANDLE_VALUE, false);
     CARLA_SAFE_ASSERT_RETURN(timeOutMilliseconds > 0, false);
 
-    const uint32_t timeoutEnd = carla_gettime_ms() + timeOutMilliseconds;
+    const uint32_t timeoutEnd = d_gettime_ms() + timeOutMilliseconds;
 
     for (;;)
     {
@@ -456,10 +445,10 @@ bool waitForProcessToStop(const HANDLE process, const uint32_t timeOutMillisecon
             ::TerminateProcess(process, 15);
         }
 
-        if (carla_gettime_ms() >= timeoutEnd)
+        if (d_gettime_ms() >= timeoutEnd)
             break;
 
-        carla_msleep(5);
+        d_msleep(5);
     }
 
     return false;
@@ -490,7 +479,7 @@ bool waitForChildToStop(const pid_t pid, const uint32_t timeOutMilliseconds, boo
     CARLA_SAFE_ASSERT_RETURN(timeOutMilliseconds > 0, false);
 
     pid_t ret;
-    const uint32_t timeoutEnd = carla_gettime_ms() + timeOutMilliseconds;
+    const uint32_t timeoutEnd = d_gettime_ms() + timeOutMilliseconds;
 
     for (;;)
     {
@@ -508,7 +497,7 @@ bool waitForChildToStop(const pid_t pid, const uint32_t timeOutMilliseconds, boo
             }
             else
             {
-                CarlaString error(std::strerror(errno));
+                String error(std::strerror(errno));
                 carla_stderr("waitForChildToStop() - waitpid failed: %s", error.buffer());
                 return false;
             }
@@ -520,9 +509,9 @@ bool waitForChildToStop(const pid_t pid, const uint32_t timeOutMilliseconds, boo
                 sendTerminate = false;
                 ::kill(pid, SIGTERM);
             }
-            if (carla_gettime_ms() < timeoutEnd)
+            if (d_gettime_ms() < timeoutEnd)
             {
-                carla_msleep(5);
+                d_msleep(5);
                 continue;
             }
             carla_stderr("waitForChildToStop() - timed out");
@@ -564,7 +553,7 @@ void waitForChildToStopOrKillIt(pid_t& pid, const uint32_t timeOutMilliseconds) 
         }
         else
         {
-            CarlaString error(std::strerror(errno));
+            String error(std::strerror(errno));
             carla_stderr("waitForChildToStopOrKillIt() - kill failed: %s", error.buffer());
         }
     }
@@ -606,8 +595,8 @@ struct CarlaPipeCommon::PrivateData {
     CarlaMutex writeLock;
 
     // temporary buffers for _readline()
-    mutable char        tmpBuf[0xffff];
-    mutable CarlaString tmpStr;
+    mutable char   tmpBuf[0xffff];
+    mutable String tmpStr;
 
     PrivateData() noexcept
 #ifdef CARLA_OS_WIN
@@ -828,7 +817,7 @@ bool CarlaPipeCommon::readNextLineAsFloat(float& value) const noexcept
     if (const char* const msg = _readlineblock(false))
     {
         {
-            const CarlaScopedLocale csl;
+            const ScopedSafeLocale ssl;
             value = static_cast<float>(std::atof(msg));
         }
         return true;
@@ -844,7 +833,7 @@ bool CarlaPipeCommon::readNextLineAsDouble(double& value) const noexcept
     if (const char* const msg = _readlineblock(false))
     {
         {
-            const CarlaScopedLocale csl;
+            const ScopedSafeLocale ssl;
             value = std::atof(msg);
         }
         return true;
@@ -1013,7 +1002,7 @@ bool CarlaPipeCommon::writeControlMessage(const uint32_t index, const float valu
         return false;
 
     {
-        const CarlaScopedLocale csl;
+        const ScopedSafeLocale ssl;
         std::snprintf(tmpBuf, 0xfe, "%.12g\n", static_cast<double>(value));
     }
 
@@ -1168,7 +1157,7 @@ bool CarlaPipeCommon::writeLv2AtomMessage(const uint32_t index, const LV2_Atom* 
     tmpBuf[0xfe] = '\0';
 
     const uint32_t atomTotalSize(lv2_atom_total_size(atom));
-    CarlaString base64atom(CarlaString::asBase64(atom, atomTotalSize));
+    String base64atom(String::asBase64(atom, atomTotalSize));
 
     const CarlaMutexLocker cml(pData->writeLock);
 
@@ -1212,7 +1201,7 @@ bool CarlaPipeCommon::writeLv2ParameterMessage(const char* const uri, const floa
         return false;
 
     {
-        const CarlaScopedLocale csl;
+        const ScopedSafeLocale ssl;
         std::snprintf(tmpBuf, 0xfe, "%.12g\n", static_cast<double>(value));
     }
 
@@ -1340,7 +1329,7 @@ const char* CarlaPipeCommon::_readline(const bool allocReturn, const uint16_t si
             if (allocReturn)
             {
                 pData->tmpStr = pData->tmpBuf;
-                return pData->tmpStr.releaseBufferPointer();
+                return pData->tmpStr.getAndReleaseBuffer();
             }
 
             return pData->tmpBuf;
@@ -1370,14 +1359,14 @@ const char* CarlaPipeCommon::_readline(const bool allocReturn, const uint16_t si
     if (! allocReturn && ! tooBig)
         return pData->tmpBuf;
 
-    return allocReturn ? pData->tmpStr.releaseBufferPointer() : pData->tmpStr.buffer();
+    return allocReturn ? pData->tmpStr.getAndReleaseBuffer() : pData->tmpStr.buffer();
 }
 
 const char* CarlaPipeCommon::_readlineblock(const bool allocReturn,
                                             const uint16_t size,
                                             const uint32_t timeOutMilliseconds) const noexcept
 {
-    const uint32_t timeoutEnd = carla_gettime_ms() + timeOutMilliseconds;
+    const uint32_t timeoutEnd = d_gettime_ms() + timeOutMilliseconds;
     bool readSucess;
 
     for (;;)
@@ -1388,17 +1377,17 @@ const char* CarlaPipeCommon::_readlineblock(const bool allocReturn,
         if (readSucess)
             return msg;
 
-        if (carla_gettime_ms() >= timeoutEnd)
+        if (d_gettime_ms() >= timeoutEnd)
             break;
 
-        carla_msleep(5);
+        d_msleep(5);
     }
 
     static const bool testingForValgrind = std::getenv("CARLA_VALGRIND_TEST") != nullptr;
 
     if (testingForValgrind)
     {
-        const uint32_t timeoutEnd2 = carla_gettime_ms() + 1000;
+        const uint32_t timeoutEnd2 = d_gettime_ms() + 1000;
 
         for (;;)
         {
@@ -1408,10 +1397,10 @@ const char* CarlaPipeCommon::_readlineblock(const bool allocReturn,
             if (readSucess)
                 return msg;
 
-            if (carla_gettime_ms() >= timeoutEnd2)
+            if (d_gettime_ms() >= timeoutEnd2)
                 break;
 
-            carla_msleep(100);
+            d_msleep(100);
         }
     }
 
@@ -1997,7 +1986,7 @@ void CarlaPipeClient::writeExitingMessageAndWait() noexcept
 
     for (int i=0; i < 100 && ! pData->pipeClosed; ++i)
     {
-        carla_msleep(50);
+        d_msleep(50);
         idlePipe(true);
     }
 

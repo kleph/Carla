@@ -54,6 +54,7 @@ struct _LV2_Atom_Buffer
 	uint32_t capacity;
 	uint32_t chunk_type;
 	uint32_t sequence_type;
+	uint32_t _alignment_padding;
 	LV2_Atom_Sequence atoms;
 
 } LV2_Atom_Buffer;
@@ -209,6 +210,11 @@ LV2_Atom_Event *lv2_atom_buffer_get (
 
 // Write an event at a LV2 atom:Sequence buffer iterator.
 
+#if defined(__GNUC__) && __GNUC__ > 7
+# pragma GCC diagnostic push
+# pragma GCC diagnostic ignored "-Wstringop-overflow"
+#endif
+
 static inline
 bool lv2_atom_buffer_write (
 	LV2_Atom_Buffer_Iterator *iter,
@@ -239,6 +245,10 @@ bool lv2_atom_buffer_write (
 
 	return true;
 }
+
+#if defined(__GNUC__) && __GNUC__ > 7
+# pragma GCC diagnostic pop
+#endif
 
 #ifdef __cplusplus
 }  /* extern "C" */

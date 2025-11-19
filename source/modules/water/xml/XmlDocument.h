@@ -3,7 +3,7 @@
 
    This file is part of the Water library.
    Copyright (c) 2016 ROLI Ltd.
-   Copyright (C) 2017-2022 Filipe Coelho <falktx@falktx.com>
+   Copyright (C) 2017-2025 Filipe Coelho <falktx@falktx.com>
 
    Permission is granted to use this software under the terms of the ISC license
    http://www.isc.org/downloads/software-support-policy/isc-license/
@@ -28,7 +28,7 @@
 
 #include "../text/StringArray.h"
 
-#include "CarlaScopeUtils.hpp"
+#include <memory>
 
 namespace water {
 
@@ -43,9 +43,9 @@ namespace water {
     @code
 
     XmlDocument myDocument (File ("myfile.xml"));
-    ScopedPointer<XmlElement> mainElement (myDocument.getDocumentElement());
+    std::unique_ptr<XmlElement> mainElement (myDocument.getDocumentElement());
 
-    if (mainElement == nullptr)
+    if (mainElement.get() == nullptr)
     {
         String error = myDocument.getLastParseError();
     }
@@ -59,7 +59,7 @@ namespace water {
     Or you can use the static helper methods for quick parsing..
 
     @code
-    ScopedPointer<XmlElement> xml (XmlDocument::parse (myXmlFile));
+    std::unique_ptr<XmlElement> xml (XmlDocument::parse (myXmlFile));
 
     if (xml != nullptr && xml->hasTagName ("foobar"))
     {
@@ -158,7 +158,7 @@ private:
     String lastError, dtdText;
     StringArray tokenisedDTD;
     bool needToLoadDTD, ignoreEmptyTextElements;
-    CarlaScopedPointer<FileInputSource> inputSource;
+    std::unique_ptr<FileInputSource> inputSource;
 
     XmlElement* parseDocumentElement (CharPointer_UTF8, bool outer);
     void setLastError (const String&, bool carryOn);

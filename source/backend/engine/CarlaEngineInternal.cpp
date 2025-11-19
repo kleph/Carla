@@ -1,19 +1,5 @@
-/*
- * Carla Plugin Host
- * Copyright (C) 2011-2020 Filipe Coelho <falktx@falktx.com>
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License as
- * published by the Free Software Foundation; either version 2 of
- * the License, or any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- *
- * For a full copy of the GNU General Public License see the doc/GPL.txt file.
- */
+// SPDX-FileCopyrightText: 2011-2025 Filipe Coelho <falktx@falktx.com>
+// SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "CarlaEngineInternal.hpp"
 #include "CarlaPlugin.hpp"
@@ -74,7 +60,7 @@ static const double kTicksPerBeat = 1920.0;
 #if defined(HAVE_HYLIA) && !defined(BUILD_BRIDGE)
 static uint32_t calculate_link_latency(const double bufferSize, const double sampleRate) noexcept
 {
-    CARLA_SAFE_ASSERT_RETURN(carla_isNotZero(sampleRate), 0);
+    CARLA_SAFE_ASSERT_RETURN(d_isNotZero(sampleRate), 0);
 
     const long long int latency = llround(1.0e6 * bufferSize / sampleRate);
     CARLA_SAFE_ASSERT_RETURN(latency >= 0 && latency < UINT32_MAX, 0);
@@ -179,7 +165,7 @@ void EngineInternalTime::relocate(const uint64_t frame) noexcept
 
 void EngineInternalTime::fillEngineTimeInfo(const uint32_t newFrames) noexcept
 {
-    CARLA_SAFE_ASSERT_RETURN(carla_isNotZero(sampleRate),);
+    CARLA_SAFE_ASSERT_RETURN(d_isNotZero(sampleRate),);
     CARLA_SAFE_ASSERT_RETURN(newFrames > 0,);
 
     double ticktmp;
@@ -262,7 +248,7 @@ void EngineInternalTime::fillEngineTimeInfo(const uint32_t newFrames) noexcept
 
 void EngineInternalTime::fillJackTimeInfo(jack_position_t* const pos, const uint32_t newFrames) noexcept
 {
-    CARLA_SAFE_ASSERT_RETURN(carla_isNotZero(sampleRate),);
+    CARLA_SAFE_ASSERT_RETURN(d_isNotZero(sampleRate),);
     CARLA_SAFE_ASSERT_RETURN(newFrames > 0,);
     CARLA_SAFE_ASSERT(transportMode == ENGINE_TRANSPORT_MODE_JACK);
 
@@ -294,12 +280,12 @@ void EngineInternalTime::preProcess(const uint32_t numFrames)
         const double new_bpb = hylia.timeInfo.beatsPerBar;
         const double new_bpm = hylia.timeInfo.beatsPerMinute;
 
-        if (new_bpb >= 1.0 && carla_isNotEqual(beatsPerBar, new_bpb))
+        if (new_bpb >= 1.0 && d_isNotEqual(beatsPerBar, new_bpb))
         {
             beatsPerBar = new_bpb;
             needsReset = true;
         }
-        if (new_bpm > 0.0 && carla_isNotEqual(beatsPerMinute, new_bpm))
+        if (new_bpm > 0.0 && d_isNotEqual(beatsPerMinute, new_bpm))
         {
             beatsPerMinute = new_bpm;
             needsReset = true;
@@ -805,7 +791,7 @@ ScopedActionLock::ScopedActionLock(CarlaEngine* const engine,
                 }
                 else
                 {
-                    carla_msleep(200);
+                    d_msleep(200);
                 }
 
                 if (! engine->isRunning())

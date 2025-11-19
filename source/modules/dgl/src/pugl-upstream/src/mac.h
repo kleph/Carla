@@ -5,9 +5,11 @@
 #ifndef PUGL_SRC_MAC_H
 #define PUGL_SRC_MAC_H
 
-#include "pugl/pugl.h"
+#include <pugl/pugl.h>
 
 #import <Cocoa/Cocoa.h>
+
+#include <mach/mach_time.h>
 
 #include <stdint.h>
 
@@ -19,14 +21,12 @@
 @end
 
 @interface PuglWindow : NSWindow
-
-- (void)setPuglview:(PuglView*)view;
-
 @end
 
 struct PuglWorldInternalsImpl {
-  NSApplication*     app;
-  NSAutoreleasePool* autoreleasePool;
+  NSApplication*            app;
+  NSAutoreleasePool*        autoreleasePool;
+  struct mach_timebase_info timebaseInfo;
 };
 
 struct PuglInternalsImpl {

@@ -1,6 +1,6 @@
 /*
  * DISTRHO Plugin Framework (DPF)
- * Copyright (C) 2012-2021 Filipe Coelho <falktx@falktx.com>
+ * Copyright (C) 2012-2025 Filipe Coelho <falktx@falktx.com>
  *
  * Permission to use, copy, modify, and/or distribute this software for any purpose with
  * or without fee is hereby granted, provided that the above copyright notice and this
@@ -114,10 +114,69 @@ Color::Color(const Color& color1, const Color& color2, const float u) noexcept
     interpolate(color2, u);
 }
 
-Color Color::withAlpha(const float alpha2) noexcept
+Color Color::withAlpha(const float alpha2) const noexcept
 {
     Color color(*this);
     color.alpha = alpha2;
+    return color;
+}
+
+Color Color::minus(const int value) const noexcept
+{
+    const float fvalue = static_cast<float>(value)/255.f;
+    Color color(*this);
+    color.red -= fvalue;
+    color.green -= fvalue;
+    color.blue -= fvalue;
+    color.fixBounds();
+    return color;
+}
+
+Color Color::minus(const float value) const noexcept
+{
+    Color color(*this);
+    color.red -= value;
+    color.green -= value;
+    color.blue -= value;
+    color.fixBounds();
+    return color;
+}
+
+Color Color::plus(const int value) const noexcept
+{
+    const float fvalue = static_cast<float>(value)/255.f;
+    Color color(*this);
+    color.red += fvalue;
+    color.green += fvalue;
+    color.blue += fvalue;
+    color.fixBounds();
+    return color;
+}
+
+Color Color::plus(const float value) const noexcept
+{
+    Color color(*this);
+    color.red += value;
+    color.green += value;
+    color.blue += value;
+    color.fixBounds();
+    return color;
+}
+
+Color Color::invert() const noexcept
+{
+    Color color(*this);
+    color.red = 1.f - color.red;
+    color.green = 1.f - color.green;
+    color.blue = 1.f - color.blue;
+    return color;
+}
+
+Color Color::asGrayscale() const noexcept
+{
+    Color color(*this);
+    // values taken from https://goodcalculators.com/rgb-to-grayscale-conversion-calculator/
+    color.red = color.green = color.blue = 0.299f * color.red + 0.587f * color.green + 0.114f * color.blue;
     return color;
 }
 
@@ -181,6 +240,14 @@ Color Color::fromHTML(const char* rgb, const float alpha) noexcept
     }
 
     return Color(r, g, b, alpha);
+}
+
+Color Color::fromRGB(const uint color, const float alpha) noexcept
+{
+    return Color(static_cast<int>(color >> 24) & 0xff,
+                 static_cast<int>(color >> 16) & 0xff,
+                 static_cast<int>(color >>  8) & 0xff,
+                 alpha);
 }
 
 void Color::interpolate(const Color& other, float u) noexcept

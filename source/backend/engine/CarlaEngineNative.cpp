@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2011-2024 Filipe Coelho <falktx@falktx.com>
+// SPDX-FileCopyrightText: 2011-2025 Filipe Coelho <falktx@falktx.com>
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "CarlaDefines.h"
@@ -16,7 +16,6 @@
 #include "CarlaPlugin.hpp"
 
 #include "CarlaBackendUtils.hpp"
-#include "CarlaBase64Utils.hpp"
 #include "CarlaBinaryUtils.hpp"
 #include "CarlaMathUtils.hpp"
 #include "CarlaStateUtils.hpp"
@@ -25,6 +24,8 @@
 #include "CarlaHost.h"
 #include "CarlaNative.hpp"
 #include "CarlaNativePlugin.h"
+
+#include "extra/Base64.hpp"
 
 #include "water/files/File.h"
 #include "water/streams/MemoryOutputStream.h"
@@ -37,7 +38,6 @@
 
 using water::File;
 using water::MemoryOutputStream;
-using water::String;
 using water::XmlDocument;
 using water::XmlElement;
 
@@ -424,7 +424,7 @@ protected:
                 carla_zeroChars(tmpBuf, STR_MAX+1);
 
                 {
-                    const CarlaScopedLocale csl;
+                    const ScopedSafeLocale ssl;
                     std::snprintf(tmpBuf, STR_MAX, "%.12g\n", newSampleRate);
                 }
 
@@ -527,7 +527,7 @@ protected:
         carla_zeroChars(tmpBuf, STR_MAX+1);
 
         const CarlaMutexLocker cml(fUiServer.getPipeLock());
-        const CarlaScopedLocale csl;
+        const ScopedSafeLocale ssl;
 
         const uint pluginId(plugin->getId());
 
@@ -786,7 +786,7 @@ protected:
         CARLA_SAFE_ASSERT_RETURN(fUiServer.writeMessage(tmpBuf),);
 
         {
-            const CarlaScopedLocale csl;
+            const ScopedSafeLocale ssl;
             std::snprintf(tmpBuf, STR_MAX, "%.12g\n", static_cast<double>(valuef));
         }
         CARLA_SAFE_ASSERT_RETURN(fUiServer.writeMessage(tmpBuf),);
@@ -826,7 +826,7 @@ protected:
 
         CARLA_SAFE_ASSERT_RETURN(fUiServer.writeMessage("sample-rate\n"),);
         {
-            const CarlaScopedLocale csl;
+            const ScopedSafeLocale ssl;
             std::snprintf(tmpBuf, STR_MAX, "%.12g\n", pData->sampleRate);
         }
         CARLA_SAFE_ASSERT_RETURN(fUiServer.writeMessage(tmpBuf),);
@@ -1233,7 +1233,7 @@ protected:
                 return;
             }
 
-            CarlaString path(pHost->resourceDir);
+            String path(pHost->resourceDir);
 
             if (kIsPatchbay)
                 path += CARLA_OS_SEP_STR "carla-plugin-patchbay";
@@ -1404,7 +1404,7 @@ protected:
         carla_zeroChars(tmpBuf, STR_MAX+1);
 
         const CarlaMutexLocker cml(fUiServer.getPipeLock());
-        const CarlaScopedLocale csl;
+        const ScopedSafeLocale ssl;
         const EngineTimeInfo& timeInfo(pData->timeInfo);
 
         // ------------------------------------------------------------------------------------------------------------
@@ -1519,7 +1519,7 @@ protected:
             pData->runner.start();
 
         fOptionsForced = true;
-        const String state(data);
+        const water::String state(data);
         XmlDocument xml(state);
         loadProjectInternal(xml, true);
 
@@ -1719,7 +1719,7 @@ private:
     float fLastScaleFactor;
 
     float fParameters[kNumInParams+kNumOutParams];
-    CarlaString fLastProjectFolder;
+    String fLastProjectFolder;
     CarlaMutex fPluginDeleterMutex;
 
     bool fOptionsForced;
@@ -2248,7 +2248,8 @@ bool CarlaEngineNativeUI::msgReceived(const char* const msg) noexcept
 
         if (const CarlaPluginPtr plugin = fEngine->getPlugin(pluginId))
         {
-            std::vector<uint8_t> chunk(carla_getChunkFromBase64String(cdata));
+            std::vector<uint8_t> chunk;
+            d_getChunkFromBase64String_impl(chunk, cdata);
 #ifdef CARLA_PROPER_CPP11_SUPPORT
             plugin->setChunkData(chunk.data(), chunk.size());
 #else

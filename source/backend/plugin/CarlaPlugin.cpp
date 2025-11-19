@@ -1,18 +1,20 @@
-﻿// SPDX-FileCopyrightText: 2011-2024 Filipe Coelho <falktx@falktx.com>
+﻿// SPDX-FileCopyrightText: 2011-2025 Filipe Coelho <falktx@falktx.com>
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "CarlaPluginInternal.hpp"
 #include "CarlaEngine.hpp"
 
 #include "CarlaBackendUtils.hpp"
-#include "CarlaBase64Utils.hpp"
 #include "CarlaMathUtils.hpp"
 #include "CarlaMIDI.h"
 #include "CarlaPluginUI.hpp"
-#include "CarlaScopeUtils.hpp"
+// #include "CarlaScopeUtils.hpp"
 #include "CarlaStringList.hpp"
 
 #include <ctime>
+
+#include "extra/Base64.hpp"
+#include "extra/ScopedPointer.hpp"
 
 #include "water/files/File.h"
 #include "water/streams/MemoryOutputStream.h"
@@ -23,7 +25,6 @@ using water::CharPointer_UTF8;
 using water::File;
 using water::MemoryOutputStream;
 using water::Result;
-using water::String;
 using water::XmlDocument;
 using water::XmlElement;
 
@@ -557,7 +558,7 @@ const CarlaStateSave& CarlaPlugin::getStateSave(const bool callPrepareForSave)
 
         if (data != nullptr && dataSize > 0)
         {
-            pData->stateSave.chunk = CarlaString::asBase64(data, dataSize).dup();
+            pData->stateSave.chunk = carla_strdup(String::asBase64(data, dataSize));
 
             if (pluginType != PLUGIN_INTERNAL && pluginType != PLUGIN_JSFX)
                 usingChunk = true;
@@ -924,7 +925,8 @@ void CarlaPlugin::loadStateSave(const CarlaStateSave& stateSave)
 
     if (stateSave.chunk != nullptr && (pData->options & PLUGIN_OPTION_USE_CHUNKS) != 0)
     {
-        std::vector<uint8_t> chunk(carla_getChunkFromBase64String(stateSave.chunk));
+        std::vector<uint8_t> chunk;
+        d_getChunkFromBase64String_impl(chunk, stateSave.chunk);
        #ifdef CARLA_PROPER_CPP11_SUPPORT
         setChunkData(chunk.data(), chunk.size());
        #else
@@ -993,7 +995,7 @@ bool CarlaPlugin::loadStateFromFile(const char* const filename)
     CARLA_SAFE_ASSERT_RETURN(file.existsAsFile(), false);
 
     XmlDocument xml(file);
-    CarlaScopedPointer<XmlElement> xmlElement(xml.getDocumentElement(true));
+    ScopedPointer<XmlElement> xmlElement(xml.getDocumentElement(true));
     CARLA_SAFE_ASSERT_RETURN(xmlElement != nullptr, false);
     CARLA_SAFE_ASSERT_RETURN(xmlElement->getTagName().equalsIgnoreCase("carla-preset"), false);
 
@@ -1016,7 +1018,7 @@ bool CarlaPlugin::exportAsLV2(const char* const lv2path)
     CARLA_SAFE_ASSERT_RETURN(lv2path != nullptr && lv2path[0] != '\0', false);
     carla_debug("CarlaPlugin::exportAsLV2(\"%s\")", lv2path);
 
-    CarlaString bundlepath(lv2path);
+    String bundlepath(lv2path);
 
     if (! bundlepath.endsWith(".lv2"))
         bundlepath += ".lv2";
@@ -1040,11 +1042,11 @@ bool CarlaPlugin::exportAsLV2(const char* const lv2path)
         }
     }
 
-    CarlaString symbol(pData->name);
+    String symbol(pData->name);
     symbol.toBasic();
 
     {
-        const CarlaString pluginFilename(bundlepath + CARLA_OS_SEP_STR + symbol + ".xml");
+        const String pluginFilename(bundlepath + CARLA_OS_SEP_STR + symbol + ".xml");
 
         if (! saveStateToFile(pluginFilename))
             return false;
@@ -1070,7 +1072,7 @@ bool CarlaPlugin::exportAsLV2(const char* const lv2path)
         manifestStream << "    lv2:requiredFeature <http://lv2plug.in/ns/ext/instance-access> .\n";
         manifestStream << "\n";
 
-        const CarlaString manifestFilename(bundlepath + CARLA_OS_SEP_STR "manifest.ttl");
+        const String manifestFilename(bundlepath + CARLA_OS_SEP_STR "manifest.ttl");
         const File manifestFile(manifestFilename.buffer());
 
         if (! manifestFile.replaceWithData(manifestStream.getData(), manifestStream.getDataSize()))
@@ -1124,8 +1126,8 @@ bool CarlaPlugin::exportAsLV2(const char* const lv2path)
 
             for (uint32_t i=1; i<midiIns; ++i)
             {
-                const String portIndexNum(portIndex++);
-                const String portIndexLabel(portIndex);
+                const water::String portIndexNum(portIndex++);
+                const water::String portIndexLabel(portIndex);
 
                 mainStream << "    lv2:port [\n";
                 mainStream << "        a lv2:InputPort, atom:AtomPort ;\n";
@@ -1150,8 +1152,8 @@ bool CarlaPlugin::exportAsLV2(const char* const lv2path)
 
         for (uint32_t i=0; i<midiOuts; ++i)
         {
-            const String portIndexNum(portIndex++);
-            const String portIndexLabel(portIndex);
+            const water::String portIndexNum(portIndex++);
+            const water::String portIndexLabel(portIndex);
 
             mainStream << "    lv2:port [\n";
             mainStream << "        a lv2:InputPort, atom:AtomPort ;\n";
@@ -1178,8 +1180,8 @@ bool CarlaPlugin::exportAsLV2(const char* const lv2path)
 
         for (uint32_t i=0; i<pData->audioIn.count; ++i)
         {
-            const String portIndexNum(portIndex++);
-            const String portIndexLabel(i+1);
+            const water::String portIndexNum(portIndex++);
+            const water::String portIndexLabel(i+1);
 
             mainStream << "    lv2:port [\n";
             mainStream << "        a lv2:InputPort, lv2:AudioPort ;\n";
@@ -1191,8 +1193,8 @@ bool CarlaPlugin::exportAsLV2(const char* const lv2path)
 
         for (uint32_t i=0; i<pData->audioOut.count; ++i)
         {
-            const String portIndexNum(portIndex++);
-            const String portIndexLabel(i+1);
+            const water::String portIndexNum(portIndex++);
+            const water::String portIndexLabel(i+1);
 
             mainStream << "    lv2:port [\n";
             mainStream << "        a lv2:OutputPort, lv2:AudioPort ;\n";
@@ -1214,7 +1216,7 @@ bool CarlaPlugin::exportAsLV2(const char* const lv2path)
             const ParameterData&   paramData(pData->param.data[i]);
             const ParameterRanges& paramRanges(pData->param.ranges[i]);
 
-            const String portIndexNum(portIndex++);
+            const water::String portIndexNum(portIndex++);
 
             mainStream << "    lv2:port [\n";
 
@@ -1238,7 +1240,7 @@ bool CarlaPlugin::exportAsLV2(const char* const lv2path)
 
             if (strBufSymbol[0] == '\0')
             {
-                CarlaString s(strBufName);
+                String s(strBufName);
                 s.toBasic();
                 std::memcpy(strBufSymbol, s.buffer(), s.length()+1);
 
@@ -1277,7 +1279,7 @@ bool CarlaPlugin::exportAsLV2(const char* const lv2path)
         mainStream << "    doap:maintainer [ foaf:name \"\"\"" << strBuf << "\"\"\" ] .\n";
         mainStream << "\n";
 
-        const CarlaString mainFilename(bundlepath + CARLA_OS_SEP_STR + symbol + ".ttl");
+        const String mainFilename(bundlepath + CARLA_OS_SEP_STR + symbol + ".ttl");
         const File mainFile(mainFilename.buffer());
 
         if (! mainFile.replaceWithData(mainStream.getData(), mainStream.getDataSize()))
@@ -1287,15 +1289,15 @@ bool CarlaPlugin::exportAsLV2(const char* const lv2path)
         }
     }
 
-    const CarlaString binaryFilename(bundlepath + CARLA_OS_SEP_STR + symbol + CARLA_LIB_EXT);
+    const String binaryFilename(bundlepath + CARLA_OS_SEP_STR + symbol + CARLA_LIB_EXT);
 
     const File binaryFileSource(File::getSpecialLocation(File::currentExecutableFile).getSiblingFile("carla-bridge-lv2" CARLA_LIB_EXT));
     const File binaryFileTarget(binaryFilename.buffer());
 
     const EngineOptions& opts(pData->engine->getOptions());
 
-    const CarlaString binFolderTarget(bundlepath + CARLA_OS_SEP_STR + "bin");
-    const CarlaString resFolderTarget(bundlepath + CARLA_OS_SEP_STR + "res");
+    const String binFolderTarget(bundlepath + CARLA_OS_SEP_STR + "bin");
+    const String resFolderTarget(bundlepath + CARLA_OS_SEP_STR + "res");
 
     if (! binaryFileSource.copyFileTo(binaryFileTarget))
     {
@@ -2489,7 +2491,7 @@ void CarlaPlugin::uiIdle()
 
     carla_stdout("Trying to get window...");
 
-    CarlaString uiTitle;
+    String uiTitle;
 
     if (pData->uiTitle.isNotEmpty())
     {

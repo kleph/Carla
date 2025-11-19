@@ -1,19 +1,5 @@
-/*
- * Carla Native Plugin UI launcher
- * Copyright (C) 2018-2023 Filipe Coelho <falktx@falktx.com>
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License as
- * published by the Free Software Foundation; either version 2 of
- * the License, or any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- *
- * For a full copy of the GNU General Public License see the doc/GPL.txt file.
- */
+// SPDX-FileCopyrightText: 2011-2025 Filipe Coelho <falktx@falktx.com>
+// SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "dgl/OpenGL.hpp"
 #include "dgl/src/pugl.hpp"
@@ -41,7 +27,15 @@ class PluginWindow : public DGL_NAMESPACE::Window
 {
 public:
     explicit PluginWindow(PluginApplication& app, const uintptr_t winId)
-        : Window(app, winId, ui_launcher_res::carla_uiWidth, ui_launcher_res::carla_uiHeight, 0.0, false, false, false)
+        : Window(app,
+                 winId,
+                 ui_launcher_res::carla_uiWidth,
+                 ui_launcher_res::carla_uiHeight,
+                 0.0,
+                 false,
+                 false,
+                 false,
+                 false)
     {
         // this is called just before creating UI, ensuring proper context to it
         if (pData->view != nullptr && pData->initPost())

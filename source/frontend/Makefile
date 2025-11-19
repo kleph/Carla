@@ -34,10 +34,22 @@ else
 NON_STATIC_LINK_FLAGS = $(LINK_FLAGS)
 endif
 
+ifeq ($(STATIC_PLUGIN_TARGET),true)
+
 ifeq ($(WINDOWS),true)
 QT_LINK_FLAGS += -L$(BINDIR) $(BINDIR)/libcarla_utils.dll
 else
 QT_LINK_FLAGS += -L$(BINDIR) -lcarla_utils
+endif
+
+else
+
+ifeq ($(WINDOWS),true)
+QT_LINK_FLAGS += -L$(BINDIR) $(BINDIR)/libcarla_standalone2.dll $(BINDIR)/libcarla_utils.dll
+else
+QT_LINK_FLAGS += -L$(BINDIR) -lcarla_standalone2 -lcarla_utils
+endif
+
 endif
 
 ifeq ($(MACOS),true)
@@ -58,6 +70,7 @@ QMs = $(patsubst %,translations/carla_%.qm,$(I18N_LANGUAGES))
 
 CPP_FILES = \
 	carla_frontend.cpp \
+	dialogs/aboutdialog.cpp \
 	dialogs/jackappdialog.cpp \
 	pluginlist/pluginlistdialog.cpp
 
@@ -69,7 +82,6 @@ OBJS = $(CPP_FILES:%=$(OBJDIR)/%.o)
 RES = \
 	qt_config.py \
 	resources_rc.py \
-	$(BINDIR)/resources/modgui \
 	$(BINDIR)/resources/patchcanvas \
 	$(BINDIR)/resources/widgets \
 	$(BINDIR)/resources/bigmeter-ui \
@@ -80,7 +92,6 @@ RES = \
 	$(BINDIR)/resources/carla_backend_qt.py \
 	$(BINDIR)/resources/carla_host.py \
 	$(BINDIR)/resources/carla_host_control.py \
-	$(BINDIR)/resources/carla_modgui.py \
 	$(BINDIR)/resources/carla_settings.py \
 	$(BINDIR)/resources/carla_skin.py \
 	$(BINDIR)/resources/carla_shared.py \
@@ -91,7 +102,6 @@ RES = \
 	$(BINDIR)/resources/notes-ui \
 	$(BINDIR)/resources/xycontroller-ui \
 	$(BINDIR)/resources/resources_rc.py \
-	$(BINDIR)/resources/ui_carla_about.py \
 	$(BINDIR)/resources/ui_carla_edit.py \
 	$(BINDIR)/resources/ui_carla_host.py \
 	$(BINDIR)/resources/ui_carla_osc_connect.py \
@@ -124,11 +134,8 @@ PLUGINLIST_UI_FILES = $(wildcard pluginlist/*.ui)
 UIs  = $(DIALOG_UI_FILES:dialogs/%.ui=dialogs/ui_%.h)
 UIs += $(PLUGINLIST_UI_FILES:pluginlist/%.ui=pluginlist/ui_%.h)
 
-UIs += $(DIALOG_UI_FILES:%.ui=%_ui.py)
-
 # old stuff, not yet converted
 UIs += \
-	ui_carla_about.py \
 	ui_carla_edit.py \
 	ui_carla_host.py \
 	ui_carla_osc_connect.py \

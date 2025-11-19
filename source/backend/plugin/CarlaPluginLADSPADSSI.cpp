@@ -1,19 +1,5 @@
-/*
- * Carla Plugin, LADSPA/DSSI implementation
- * Copyright (C) 2011-2023 Filipe Coelho <falktx@falktx.com>
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License as
- * published by the Free Software Foundation; either version 2 of
- * the License, or any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- *
- * For a full copy of the GNU General Public License see the doc/GPL.txt file.
- */
+// SPDX-FileCopyrightText: 2011-2025 Filipe Coelho <falktx@falktx.com>
+// SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "CarlaPluginInternal.hpp"
 #include "CarlaEngineUtils.hpp"
@@ -28,12 +14,10 @@
 # include "CarlaOscUtils.hpp"
 # include "CarlaScopeUtils.hpp"
 # include "CarlaThread.hpp"
+# include "extra/ScopedPointer.hpp"
 # include "water/threads/ChildProcess.h"
 using water::ChildProcess;
 #endif
-
-using water::String;
-using water::StringArray;
 
 #define CARLA_PLUGIN_DSSI_OSC_CHECK_OSC_TYPES(/* argc, types, */ argcToCompare, typesToCompare) \
     /* check argument count */                                                                  \
@@ -135,8 +119,8 @@ public:
             return;
         }
 
-        String name(kPlugin->getName());
-        String filename(kPlugin->getFilename());
+        water::String name(kPlugin->getName());
+        water::String filename(kPlugin->getFilename());
 
         if (name.isEmpty())
             name = "(none)";
@@ -144,13 +128,13 @@ public:
         if (filename.isEmpty())
             filename = "\"\"";
 
-        StringArray arguments;
+        water::StringArray arguments;
 
         // binary
         arguments.add(fBinary.buffer());
 
         // osc-url
-        arguments.add(String(kEngine->getOscServerPathUDP()) + String("/") + String(kPlugin->getId()));
+        arguments.add(String(kEngine->getOscServerPathUDP()) + water::String("/") + water::String(kPlugin->getId()));
 
         // filename
         arguments.add(filename);
@@ -176,12 +160,12 @@ public:
             winIdStr[STR_MAX] = '\0';
 
             // for LD_PRELOAD
-            CarlaString ldPreloadValue;
+            String ldPreloadValue;
 
             if (winId != 0)
             {
                 std::snprintf(winIdStr, STR_MAX, P_UINTPTR, winId);
-                ldPreloadValue = (CarlaString(kEngine->getOptions().binaryDir)
+                ldPreloadValue = (String(kEngine->getOptions().binaryDir)
                                + "/libcarla_interposer-x11.so");
             }
             else
@@ -209,7 +193,7 @@ public:
         if (waitForOscGuiShow())
         {
             for (; fProcess->isRunning() && ! shouldThreadExit();)
-                carla_sleep(1);
+                d_msleep(100);
 
             // we only get here if UI was closed or thread asked to exit
             if (fProcess->isRunning() && shouldThreadExit())
@@ -251,12 +235,12 @@ private:
     CarlaEngine* const kEngine;
     CarlaPlugin* const kPlugin;
 
-    CarlaString fBinary;
-    CarlaString fLabel;
-    CarlaString fUiTitle;
+    String fBinary;
+    String fLabel;
+    String fUiTitle;
 
     const CarlaOscData& fOscData;
-    CarlaScopedPointer<ChildProcess> fProcess;
+    ScopedPointer<ChildProcess> fProcess;
 
     bool waitForOscGuiShow()
     {
@@ -274,7 +258,7 @@ private:
             }
 
             if (fProcess != nullptr && fProcess->isRunning() && ! shouldThreadExit())
-                carla_msleep(100);
+                d_msleep(100);
             else
                 return false;
         }
@@ -990,7 +974,7 @@ public:
         }
 
         const uint portNameSize(pData->engine->getMaxPortNameSize());
-        CarlaString portName;
+        String portName;
 
         for (uint32_t i=0, iAudioIn=0, iAudioOut=0, iCtrl=0; i < portCount; ++i)
         {
@@ -1019,7 +1003,7 @@ public:
                         if (aIns > 1)
                         {
                             portName += "audio-in_";
-                            portName += CarlaString(iAudioIn+1);
+                            portName += String(iAudioIn+1);
                         }
                         else
                             portName += "audio-in";
@@ -1029,7 +1013,7 @@ public:
                         if (aOuts > 1)
                         {
                             portName += "audio-out_";
-                            portName += CarlaString(iAudioOut+1);
+                            portName += String(iAudioOut+1);
                         }
                         else
                             portName += "audio-out";
@@ -2896,7 +2880,7 @@ public:
         // ---------------------------------------------------------------
         // check for fixed buffer size requirement
 
-        fNeedsFixedBuffers = CarlaString(filename).contains("dssi-vst", true);
+        fNeedsFixedBuffers = String(filename).contains("dssi-vst", true);
 
         if (fNeedsFixedBuffers && ! pData->engine->usesConstantBufferSize())
         {
@@ -2997,7 +2981,7 @@ public:
             {
                 fUiFilename = guiFilename;
 
-                CarlaString uiTitle;
+                String uiTitle;
 
                 if (pData->uiTitle.isNotEmpty())
                 {
